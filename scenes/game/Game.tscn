@@ -1,45 +1,89 @@
-[gd_scene load_steps=2 format=3 uid="uid://drww8ah4ljqm8"]
+[gd_scene load_steps=3 format=3 uid="uid://drww8ah4ljqm8"]
 
 [ext_resource type="Script" path="res://scripts/game/game.gd" id="1_t8hjr"]
+[ext_resource type="PackedScene" path="res://scenes/game/Player.tscn" id="2_5xcmf"]
 
-[node name="Game" type="Control"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Game" type="Node2D"]
 script = ExtResource("1_t8hjr")
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="ArenaFloor" type="Polygon2D" parent="."]
+color = Color(0.14, 0.12, 0.2, 1)
+polygon = PackedVector2Array(-1200, -800, 1200, -800, 1200, 800, -1200, 800)
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
-layout_mode = 2
-theme_override_constants/separation = 12
+[node name="Player" parent="." instance=ExtResource("2_5xcmf")]
 
-[node name="HeaderLabel" type="Label" parent="CenterContainer/VBoxContainer"]
-layout_mode = 2
-text = "Game Placeholder"
-horizontal_alignment = 1
+[node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="HintLabel" type="Label" parent="CenterContainer/VBoxContainer"]
-layout_mode = 2
-text = "Press Pause to trigger Game Over"
-horizontal_alignment = 1
+[node name="TopPanel" type="PanelContainer" parent="HUD"]
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 300.0
+offset_bottom = 118.0
 
-[node name="TimeLabel" type="Label" parent="CenterContainer/VBoxContainer"]
-layout_mode = 2
+[node name="HUDMargin" type="MarginContainer" parent="HUD/TopPanel"]
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="HUDVBox" type="VBoxContainer" parent="HUD/TopPanel/HUDMargin"]
+theme_override_constants/separation = 4
+
+[node name="TitleLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
+text = "RPS Survivors Prototype"
+
+[node name="HealthLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
+text = "HP: 100/100"
+
+[node name="TimeLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
 text = "Time: 0.0"
-horizontal_alignment = 1
 
-[node name="EndRunButton" type="Button" parent="CenterContainer/VBoxContainer"]
-layout_mode = 2
+[node name="BottomPanel" type="PanelContainer" parent="HUD"]
+offset_left = 12.0
+offset_top = 636.0
+offset_right = 560.0
+offset_bottom = 708.0
+
+[node name="BottomMargin" type="MarginContainer" parent="HUD/BottomPanel"]
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="HintsLabel" type="Label" parent="HUD/BottomPanel/BottomMargin"]
+text = "WASD move | SPACE dash | LMB attack (placeholder) | ESC pause"
+
+[node name="EndRunButton" type="Button" parent="HUD"]
+offset_left = 1128.0
+offset_top = 16.0
+offset_right = 1260.0
+offset_bottom = 58.0
 text = "End Run"
 
-[connection signal="pressed" from="CenterContainer/VBoxContainer/EndRunButton" to="." method="_on_end_run_button_pressed"]
+[node name="AttackFlash" type="Label" parent="HUD"]
+visible = false
+offset_left = 516.0
+offset_top = 20.0
+offset_right = 764.0
+offset_bottom = 62.0
+theme_override_colors/font_color = Color(0.95, 0.35, 0.35, 1)
+text = "ATTACK!"
+horizontal_alignment = 1
+
+[node name="ArenaBounds" type="ColorRect" parent="HUD"]
+offset_left = 12.0
+offset_top = 120.0
+offset_right = 325.0
+anchor_right = 1.0
+offset_bottom = 143.0
+mouse_filter = 2
+color = Color(0.27, 0.5, 0.75, 0.12)
+
+[node name="BoundsText" type="Label" parent="HUD/ArenaBounds"]
+offset_left = 8.0
+offset_top = 4.0
+offset_right = 290.0
+offset_bottom = 24.0
+text = "Arena bounds: x[-1100,1100], y[-700,700]"
+
+[connection signal="pressed" from="HUD/EndRunButton" to="." method="_on_end_run_button_pressed"]

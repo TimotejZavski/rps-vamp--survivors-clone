@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://dj4sv3egmqfkn"]
+
+[ext_resource type="Script" path="res://scripts/player/player.gd" id="1_ek41j"]
+
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("1_ek41j")
+
+[node name="Body" type="Polygon2D" parent="."]
+color = Color(0.95, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-14, -14, 14, -14, 14, 14, -14, 14)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+zoom = Vector2(0.95, 0.95)
