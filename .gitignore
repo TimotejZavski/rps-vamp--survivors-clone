@@ -1,1 +1,4 @@
 .DS_Store
+
+#Godot editor/cache data
+.godot/
