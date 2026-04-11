@@ -2,11 +2,13 @@ extends Node
 
 enum FlowState {
 	MAIN_MENU,
+	CHARACTER_SELECT,
 	GAME,
 	GAME_OVER
 }
 
 const MAIN_MENU_SCENE := preload("res://scenes/ui/MainMenu.tscn")
+const CHARACTER_SELECT_SCENE := preload("res://scenes/ui/CharacterSelect.tscn")
 const GAME_SCENE := preload("res://scenes/game/Game.tscn")
 const GAME_OVER_SCENE := preload("res://scenes/ui/GameOver.tscn")
 
@@ -33,6 +35,10 @@ func _change_state(state: FlowState) -> void:
 			_current_screen = MAIN_MENU_SCENE.instantiate()
 			_current_screen.start_requested.connect(_on_start_requested)
 			_current_screen.quit_requested.connect(_on_quit_requested)
+		FlowState.CHARACTER_SELECT:
+			_current_screen = CHARACTER_SELECT_SCENE.instantiate()
+			_current_screen.run_requested.connect(_on_run_requested)
+			_current_screen.back_requested.connect(_on_character_back_requested)
 		FlowState.GAME:
 			_current_screen = GAME_SCENE.instantiate()
 			_current_screen.game_over_requested.connect(_on_game_over_requested)
@@ -45,7 +51,16 @@ func _change_state(state: FlowState) -> void:
 
 
 func _on_start_requested() -> void:
+	_change_state(FlowState.CHARACTER_SELECT)
+
+
+func _on_run_requested(character_id: String) -> void:
+	RunConfig.apply_preset(character_id)
 	_change_state(FlowState.GAME)
+
+
+func _on_character_back_requested() -> void:
+	_change_state(FlowState.MAIN_MENU)
 
 
 func _on_quit_requested() -> void:

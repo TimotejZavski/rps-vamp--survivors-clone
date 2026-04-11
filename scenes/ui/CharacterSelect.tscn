@@ -1,0 +1,59 @@
+[gd_scene format=3 uid="uid://tungch1o23b5"]
+
+[ext_resource type="Script" path="res://scripts/ui/character_select.gd" id="1_cs"]
+
+[node name="CharacterSelect" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_cs")
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 22
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Choose character (placeholder UI)"
+horizontal_alignment = 1
+
+[node name="CharacterList" type="ItemList" parent="Center/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(420, 140)
+layout_mode = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="BackButton" type="Button" parent="Center/Panel/Margin/VBox/ButtonRow"]
+layout_mode = 2
+text = "Back"
+
+[node name="BeginButton" type="Button" parent="Center/Panel/Margin/VBox/ButtonRow"]
+layout_mode = 2
+text = "Begin run"
+
+[connection signal="pressed" from="Center/Panel/Margin/VBox/ButtonRow/BackButton" to="." method="_on_back_pressed"]
+[connection signal="pressed" from="Center/Panel/Margin/VBox/ButtonRow/BeginButton" to="." method="_on_begin_pressed"]

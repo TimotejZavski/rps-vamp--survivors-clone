@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://cuv4g1nibm5u2"]
+[gd_scene load_steps=4 format=3 uid="uid://cuv4g1nibm5u2"]
 
 [ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_xmkuj"]
+[ext_resource type="Texture2D" uid="uid://dqtpv31x5wo5y" path="res://ui/main_menu_cover.jpg" id="2_bg"]
+[ext_resource type="Theme" uid="uid://c8k2hm4n1menu" path="res://theme/main_menu_buttons.tres" id="3_btn_theme"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -11,30 +13,58 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_xmkuj")
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+[node name="BottomMargin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 96
+
+[node name="MainColumn" type="VBoxContainer" parent="BottomMargin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Spacer" type="Control" parent="BottomMargin/MainColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ButtonRow" type="HBoxContainer" parent="BottomMargin/MainColumn"]
+layout_mode = 2
+size_flags_vertical = 0
+alignment = 1
+
+[node name="ButtonColumn" type="VBoxContainer" parent="BottomMargin/MainColumn/ButtonRow"]
+layout_mode = 2
+theme = ExtResource("3_btn_theme")
+texture_filter = 0
 theme_override_constants/separation = 12
 
-[node name="TitleLabel" type="Label" parent="CenterContainer/VBoxContainer"]
+[node name="StartButton" type="Button" parent="BottomMargin/MainColumn/ButtonRow/ButtonColumn"]
 layout_mode = 2
-text = "RPS Vamp Survivors Clone"
-horizontal_alignment = 1
-
-[node name="StartButton" type="Button" parent="CenterContainer/VBoxContainer"]
-layout_mode = 2
+texture_filter = 0
 text = "Start Game"
 
-[node name="QuitButton" type="Button" parent="CenterContainer/VBoxContainer"]
+[node name="QuitButton" type="Button" parent="BottomMargin/MainColumn/ButtonRow/ButtonColumn"]
 layout_mode = 2
+texture_filter = 0
 text = "Quit"
 
-[connection signal="pressed" from="CenterContainer/VBoxContainer/StartButton" to="." method="_on_start_button_pressed"]
-[connection signal="pressed" from="CenterContainer/VBoxContainer/QuitButton" to="." method="_on_quit_button_pressed"]
+[connection signal="pressed" from="BottomMargin/MainColumn/ButtonRow/ButtonColumn/StartButton" to="." method="_on_start_button_pressed"]
+[connection signal="pressed" from="BottomMargin/MainColumn/ButtonRow/ButtonColumn/QuitButton" to="." method="_on_quit_button_pressed"]
