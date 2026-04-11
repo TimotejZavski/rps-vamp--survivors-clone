@@ -15,6 +15,19 @@ var _elapsed_seconds := 0.0
 var _attack_flash_time_left := 0.0
 
 
+func _ready() -> void:
+	player_camera.make_current()
+
+	if player.has_signal("health_changed"):
+		player.health_changed.connect(_on_player_health_changed)
+		var current_health := int(player.get("current_health"))
+		var max_health := int(player.get("max_health"))
+		_on_player_health_changed(current_health, max_health)
+
+	if player.has_signal("died"):
+		player.died.connect(_on_player_died)
+
+
 func _process(delta: float) -> void:
 	_elapsed_seconds += delta
 	timer_label.text = "Time: %.1f" % _elapsed_seconds
@@ -30,14 +43,10 @@ func _process(delta: float) -> void:
 
 	player.position = player.position.clamp(ARENA_MIN, ARENA_MAX)
 
-
-func _ready() -> void:
-	player_camera.make_current()
-	if player.has_signal("health_changed"):
-		player.health_changed.connect(_on_player_health_changed)
-		var current_health := int(player.get("current_health"))
-		var max_health := int(player.get("max_health"))
-		_on_player_health_changed(current_health, max_health)
+	# Privremeni test damage-a dok jos nema pravih enemy napada
+	if Input.is_action_just_pressed("ui_accept"):
+		if player.has_method("take_damage"):
+			player.take_damage(10)
 
 
 func _on_end_run_button_pressed() -> void:
@@ -50,3 +59,7 @@ func _on_pause_requested() -> void:
 
 func _on_player_health_changed(new_health: int, max_health: int) -> void:
 	health_label.text = "HP: %d/%d" % [new_health, max_health]
+
+
+func _on_player_died() -> void:
+	game_over_requested.emit()
