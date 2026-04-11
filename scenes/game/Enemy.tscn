@@ -1,21 +1,18 @@
-[gd_scene format=3 uid="uid://bo6gocthl7sn3"]
+[gd_scene load_steps=3 format=3 uid="uid://c8enemy01base"]
 
-[ext_resource type="Script" uid="uid://b03ot3lq8uiep" path="res://scripts/enemy/enemy.gd" id="1_lp5lk"]
+[ext_resource type="Script" path="res://scripts/enemy/enemy.gd" id="1_enemy"]
 
-[sub_resource type="Gradient" id="Gradient_6vb2m"]
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_enemy"]
+size = Vector2(14, 14)
 
-[sub_resource type="GradientTexture1D" id="GradientTexture1D_jm6wa"]
-gradient = SubResource("Gradient_6vb2m")
+[node name="Enemy" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 0
+script = ExtResource("1_enemy")
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_ayi7h"]
+[node name="Body" type="Polygon2D" parent="."]
+color = Color(0.32, 0.78, 0.42, 1)
+polygon = PackedVector2Array(-7, -7, 7, -7, 7, 7, -7, 7)
 
-[node name="Enemy" type="CharacterBody2D" unique_id=391882556]
-position = Vector2(673, 366)
-script = ExtResource("1_lp5lk")
-
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1843637728]
-scale = Vector2(0.054687496, 9)
-texture = SubResource("GradientTexture1D_jm6wa")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1223031045]
-shape = SubResource("CircleShape2D_ayi7h")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_enemy")

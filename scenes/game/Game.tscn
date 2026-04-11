@@ -1,109 +1,114 @@
-[gd_scene format=3 uid="uid://drww8ah4ljqm8"]
+[gd_scene load_steps=5 format=3 uid="uid://drww8ah4ljqm8"]
 
-[ext_resource type="Script" uid="uid://dft0emwcavup3" path="res://scripts/game/game.gd" id="1_t8hjr"]
-[ext_resource type="PackedScene" uid="uid://dj4sv3egmqfkn" path="res://scenes/game/Player.tscn" id="2_5xcmf"]
+[ext_resource type="Script" path="res://scripts/game/game.gd" id="1_t8hjr"]
+[ext_resource type="PackedScene" path="res://scenes/game/Player.tscn" id="2_5xcmf"]
+[ext_resource type="Script" path="res://scripts/world/procedural_forest_manager.gd" id="3_forest"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_vrspl"]
-radius = 16.0
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hpb_bg"]
+bg_color = Color(0.12, 0.11, 0.16, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.28, 0.24, 0.35, 1)
 
-[node name="Game" type="Node2D" unique_id=300320206]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hpb_fill"]
+bg_color = Color(0.82, 0.24, 0.28, 1)
+
+[node name="Game" type="Node2D"]
 script = ExtResource("1_t8hjr")
 
-[node name="ArenaFloor" type="Polygon2D" parent="." unique_id=1733507112]
-position = Vector2(123, 59)
-color = Color(0.14, 0.12, 0.2, 1)
+[node name="ArenaFloor" type="Polygon2D" parent="."]
+z_index = -500
+z_as_relative = false
+color = Color(0.14, 0.34, 0.2, 1)
 polygon = PackedVector2Array(-1200, -800, 1200, -800, 1200, 800, -1200, 800)
 
-[node name="Player" parent="." unique_id=720425302 groups=["player"] instance=ExtResource("2_5xcmf")]
-position = Vector2(223, 235)
+[node name="ProceduralForest" type="Node2D" parent="."]
+z_index = -120
+z_as_relative = false
+script = ExtResource("3_forest")
 
-[node name="CollisionShape2D2" type="CollisionShape2D" parent="Player" unique_id=615553480 groups=["player"]]
-position = Vector2(-8, -4)
-shape = SubResource("CircleShape2D_vrspl")
+[node name="Player" parent="." instance=ExtResource("2_5xcmf")]
 
-[node name="Enemies" type="Node2D" parent="." unique_id=2847591201]
+[node name="Enemies" type="Node2D" parent="."]
 
-[node name="HUD" type="CanvasLayer" parent="." unique_id=316413741]
+[node name="Pickups" type="Node2D" parent="."]
 
-[node name="TopPanel" type="PanelContainer" parent="HUD" unique_id=1625899867]
-offset_left = 12.0
-offset_top = 12.0
-offset_right = 300.0
-offset_bottom = 118.0
+[node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="HUDMargin" type="MarginContainer" parent="HUD/TopPanel" unique_id=1965873412]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+[node name="TopPanel" type="PanelContainer" parent="HUD"]
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 200.0
+offset_bottom = 108.0
 
-[node name="HUDVBox" type="VBoxContainer" parent="HUD/TopPanel/HUDMargin" unique_id=733358855]
-layout_mode = 2
-theme_override_constants/separation = 4
+[node name="HUDMargin" type="MarginContainer" parent="HUD/TopPanel"]
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 5
 
-[node name="TitleLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox" unique_id=630390539]
-layout_mode = 2
-text = "RPS Survivors Prototype"
+[node name="HUDVBox" type="VBoxContainer" parent="HUD/TopPanel/HUDMargin"]
+theme_override_constants/separation = 2
 
-[node name="HealthLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox" unique_id=1563025410]
-layout_mode = 2
+[node name="TitleLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
+text = "Run: (set in code)"
+
+[node name="WeaponLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
+text = "Weapon: (set in code)"
+
+[node name="HealthBar" type="ProgressBar" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
+custom_minimum_size = Vector2(0, 8)
+size_flags_horizontal = 3
+max_value = 100.0
+value = 100.0
+show_percentage = false
+theme_override_styles/background = SubResource("StyleBoxFlat_hpb_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hpb_fill")
+
+[node name="HealthLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
 text = "HP: 100/100"
 
-[node name="TimeLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox" unique_id=160104510]
-layout_mode = 2
+[node name="TimeLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
 text = "Time: 0.0"
 
-[node name="BottomPanel" type="PanelContainer" parent="HUD" unique_id=1747148364]
-offset_left = 12.0
-offset_top = 636.0
-offset_right = 560.0
-offset_bottom = 708.0
+[node name="CrystalLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
+text = "Crystals: 0 / 5  ·  Lv 1"
 
-[node name="BottomMargin" type="MarginContainer" parent="HUD/BottomPanel" unique_id=1591918840]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+[node name="BoundsLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
+text = "Arena bounds: x[-1100,1100], y[-700,700]"
 
-[node name="HintsLabel" type="Label" parent="HUD/BottomPanel/BottomMargin" unique_id=1090109837]
-layout_mode = 2
-text = "WASD move | SPACE dash | LMB attack (placeholder) | ESC pause"
+[node name="BottomPanel" type="PanelContainer" parent="HUD"]
+offset_left = 4.0
+offset_top = 656.0
+offset_right = 420.0
+offset_bottom = 712.0
 
-[node name="EndRunButton" type="Button" parent="HUD" unique_id=396253848]
-offset_left = 1128.0
-offset_top = 16.0
-offset_right = 1260.0
-offset_bottom = 58.0
+[node name="BottomMargin" type="MarginContainer" parent="HUD/BottomPanel"]
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 5
+
+[node name="HintsLabel" type="Label" parent="HUD/BottomPanel/BottomMargin"]
+text = "WASD move | SPACE dash | auto weapon (placeholder) | ESC pause"
+
+[node name="EndRunButton" type="Button" parent="HUD"]
+offset_left = 1120.0
+offset_top = 4.0
+offset_right = 1268.0
+offset_bottom = 26.0
 text = "End Run"
 
-[node name="AttackFlash" type="Label" parent="HUD" unique_id=1623857735]
+[node name="AttackFlash" type="Label" parent="HUD"]
 visible = false
-offset_left = 516.0
-offset_top = 20.0
-offset_right = 764.0
-offset_bottom = 62.0
+offset_left = 520.0
+offset_top = 4.0
+offset_right = 760.0
+offset_bottom = 22.0
 theme_override_colors/font_color = Color(0.95, 0.35, 0.35, 1)
 text = "ATTACK!"
 horizontal_alignment = 1
-
-[node name="ArenaBounds" type="ColorRect" parent="HUD" unique_id=1943638003]
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 12.0
-offset_top = 120.0
-offset_right = 325.0
-offset_bottom = 143.0
-mouse_filter = 2
-color = Color(0.27, 0.5, 0.75, 0.12)
-
-[node name="BoundsText" type="Label" parent="HUD/ArenaBounds" unique_id=1581330193]
-layout_mode = 0
-offset_left = 8.0
-offset_top = 4.0
-offset_right = 290.0
-offset_bottom = 24.0
-text = "Arena bounds: x[-1100,1100], y[-700,700]"
 
 [connection signal="pressed" from="HUD/EndRunButton" to="." method="_on_end_run_button_pressed"]
