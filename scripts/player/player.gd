@@ -42,12 +42,16 @@ func _physics_process(delta: float) -> void:
 
 
 func take_damage(amount: int) -> void:
+	print("PLAYER TOOK DAMAGE:", amount)
+
 	if _is_dead:
 		return
 
 	current_health -= amount
 	if current_health < 0:
 		current_health = 0
+
+	print("NEW HP:", current_health)
 
 	health_changed.emit(current_health, max_health)
 
