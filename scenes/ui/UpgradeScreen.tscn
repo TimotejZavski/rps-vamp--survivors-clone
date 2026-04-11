@@ -1,0 +1,52 @@
+[gd_scene format=3 uid="uid://upgr01screen"]
+
+[ext_resource type="Script" path="res://scripts/ui/upgrade_screen.gd" id="1_upgrade"]
+
+[node name="UpgradeScreen" type="CanvasLayer"]
+layer = 100
+script = ExtResource("1_upgrade")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.04, 0.03, 0.08, 0.82)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 22
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel/Margin"]
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Upgrade"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Choose an upgrade (placeholder — hook choices here)."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ContinueButton" type="Button" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Continue"
+
+[connection signal="pressed" from="Center/Panel/Margin/VBox/ContinueButton" to="." method="_on_continue_pressed"]
