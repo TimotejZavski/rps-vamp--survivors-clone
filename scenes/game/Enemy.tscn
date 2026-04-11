@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://bo6gocthl7sn3"]
+
+[ext_resource type="Script" uid="uid://b03ot3lq8uiep" path="res://scripts/enemy/enemy.gd" id="1_lp5lk"]
+
+[sub_resource type="Gradient" id="Gradient_6vb2m"]
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_jm6wa"]
+gradient = SubResource("Gradient_6vb2m")
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_ayi7h"]
+
+[node name="Enemy" type="CharacterBody2D" unique_id=391882556]
+position = Vector2(673, 366)
+script = ExtResource("1_lp5lk")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1843637728]
+scale = Vector2(0.054687496, 9)
+texture = SubResource("GradientTexture1D_jm6wa")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1223031045]
+shape = SubResource("CircleShape2D_ayi7h")
