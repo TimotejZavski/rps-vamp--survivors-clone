@@ -4,8 +4,10 @@ signal game_over_requested
 
 const ARENA_MIN := Vector2(-1100.0, -700.0)
 const ARENA_MAX := Vector2(1100.0, 700.0)
+const ENEMY_SCENE := preload("res://scenes/game/Enemy.tscn")
 
 @onready var player: CharacterBody2D = $Player
+@onready var enemies: Node2D = $Enemies
 @onready var player_camera: Camera2D = $Player/Camera2D
 @onready var health_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/HealthLabel
 @onready var timer_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/TimeLabel
@@ -13,6 +15,7 @@ const ARENA_MAX := Vector2(1100.0, 700.0)
 
 var _elapsed_seconds := 0.0
 var _attack_flash_time_left := 0.0
+var _spawn_timer := 1.2
 
 
 func _ready() -> void:
@@ -31,6 +34,12 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_elapsed_seconds += delta
 	timer_label.text = "Time: %.1f" % _elapsed_seconds
+
+	var spawn_interval := maxf(0.55, 2.0 - _elapsed_seconds * 0.035)
+	_spawn_timer -= delta
+	if _spawn_timer <= 0.0:
+		_spawn_timer = spawn_interval
+		_spawn_enemy()
 
 	if Input.is_action_just_pressed("attack"):
 		_attack_flash_time_left = 0.12
@@ -63,3 +72,22 @@ func _on_player_health_changed(new_health: int, max_health: int) -> void:
 
 func _on_player_died() -> void:
 	game_over_requested.emit()
+
+
+func _random_spawn_on_arena_edge() -> Vector2:
+	match randi() % 4:
+		0:
+			return Vector2(randf_range(ARENA_MIN.x, ARENA_MAX.x), ARENA_MIN.y)
+		1:
+			return Vector2(randf_range(ARENA_MIN.x, ARENA_MAX.x), ARENA_MAX.y)
+		2:
+			return Vector2(ARENA_MIN.x, randf_range(ARENA_MIN.y, ARENA_MAX.y))
+		_:
+			return Vector2(ARENA_MAX.x, randf_range(ARENA_MIN.y, ARENA_MAX.y))
+
+
+func _spawn_enemy() -> void:
+	var enemy = ENEMY_SCENE.instantiate()
+	enemy.target = player
+	enemy.global_position = _random_spawn_on_arena_edge()
+	enemies.add_child(enemy)

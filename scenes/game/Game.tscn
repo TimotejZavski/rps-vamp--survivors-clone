@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://dft0emwcavup3" path="res://scripts/game/game.gd" id="1_t8hjr"]
 [ext_resource type="PackedScene" uid="uid://dj4sv3egmqfkn" path="res://scenes/game/Player.tscn" id="2_5xcmf"]
-[ext_resource type="PackedScene" uid="uid://bo6gocthl7sn3" path="res://scenes/game/Enemy.tscn" id="3_vrspl"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_vrspl"]
 radius = 16.0
@@ -21,6 +20,8 @@ position = Vector2(223, 235)
 [node name="CollisionShape2D2" type="CollisionShape2D" parent="Player" unique_id=615553480 groups=["player"]]
 position = Vector2(-8, -4)
 shape = SubResource("CircleShape2D_vrspl")
+
+[node name="Enemies" type="Node2D" parent="." unique_id=2847591201]
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=316413741]
 
@@ -104,8 +105,5 @@ offset_top = 4.0
 offset_right = 290.0
 offset_bottom = 24.0
 text = "Arena bounds: x[-1100,1100], y[-700,700]"
-
-[node name="Enemy" parent="." unique_id=391882556 instance=ExtResource("3_vrspl")]
-position = Vector2(571, 291)
 
 [connection signal="pressed" from="HUD/EndRunButton" to="." method="_on_end_run_button_pressed"]
