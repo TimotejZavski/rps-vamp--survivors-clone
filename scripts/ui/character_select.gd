@@ -5,19 +5,24 @@ signal back_requested
 
 const ROWS := [
 	{"id": "wizard", "label": "Imelda — Magic Wand (placeholder)"},
-	{"id": "knight", "label": "Knight — sword (placeholder)"},
-	{"id": "cleric", "label": "Cleric — aura (placeholder)"},
+	{"id": "knight", "label": "Krochi — Sword Slash (placeholder)"},
+	{"id": "cleric", "label": "Suor Clerici — Holy Aura (placeholder)"},
 ]
 
-const IMELDA_PORTRAIT := "res://assets/characters/imelda/portrait.png"
+const PORTRAIT_BY_ID := {
+	"wizard": "res://assets/characters/imelda/portrait.png",
+	"knight": "res://assets/characters/knight/portrait.png",
+	"cleric": "res://assets/characters/cleric/portrait.png",
+}
 
 
 func _ready() -> void:
 	var list: ItemList = $Center/Panel/Margin/VBox/CharacterList
 	list.fixed_icon_size = Vector2i(40, 40)
-	var portrait_tex := _load_png_texture(IMELDA_PORTRAIT)
+	list.item_activated.connect(_on_list_item_activated)
 	for row in ROWS:
-		var icon: Texture2D = portrait_tex if row.id == "wizard" else null
+		var path: String = PORTRAIT_BY_ID.get(row.id, "")
+		var icon: Texture2D = _load_png_texture(path) if path != "" else null
 		list.add_item(row.label, icon)
 		list.set_item_metadata(list.item_count - 1, row.id)
 	list.select(0)
@@ -36,6 +41,10 @@ func _get_selected_id() -> String:
 	if selected.size() == 0:
 		return "wizard"
 	return str(list.get_item_metadata(selected[0]))
+
+
+func _on_list_item_activated(_index: int) -> void:
+	_on_begin_pressed()
 
 
 func _on_begin_pressed() -> void:
