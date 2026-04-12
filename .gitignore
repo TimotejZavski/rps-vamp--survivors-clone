@@ -2,3 +2,6 @@
 
 #Godot editor/cache data
 .godot/
+
+.venv-gif/
+.venv/
