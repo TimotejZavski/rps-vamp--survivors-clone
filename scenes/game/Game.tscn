@@ -1,22 +1,24 @@
-[gd_scene load_steps=5 format=3 uid="uid://drww8ah4ljqm8"]
+[gd_scene load_steps=6 format=3 uid="uid://drww8ah4ljqm8"]
 
 [ext_resource type="Script" path="res://scripts/game/game.gd" id="1_t8hjr"]
 [ext_resource type="PackedScene" path="res://scenes/game/Player.tscn" id="2_5xcmf"]
 [ext_resource type="Script" path="res://scripts/world/procedural_forest_manager.gd" id="3_forest"]
+[ext_resource type="AudioStream" path="res://assets/music/the_beginning.ogg" id="4_bgm"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hpb_bg"]
-bg_color = Color(0.12, 0.11, 0.16, 1)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_bg"]
+bg_color = Color(0.1, 0.12, 0.18, 1)
 border_width_bottom = 1
-border_color = Color(0.28, 0.24, 0.35, 1)
+border_color = Color(0.22, 0.26, 0.36, 1)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hpb_fill"]
-bg_color = Color(0.82, 0.24, 0.28, 1)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_fill"]
+bg_color = Color(0.22, 0.55, 0.95, 1)
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_t8hjr")
+
+[node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
+process_mode = 3
+stream = ExtResource("4_bgm")
 
 [node name="ArenaFloor" type="Polygon2D" parent="."]
 z_index = -500
@@ -37,9 +39,21 @@ script = ExtResource("3_forest")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
+[node name="XpBar" type="ProgressBar" parent="HUD"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 6.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_xp_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_xp_fill")
+max_value = 5.0
+show_percentage = false
+
 [node name="TopPanel" type="PanelContainer" parent="HUD"]
 offset_left = 4.0
-offset_top = 4.0
+offset_top = 10.0
 offset_right = 200.0
 offset_bottom = 108.0
 
@@ -57,15 +71,6 @@ text = "Run: (set in code)"
 
 [node name="WeaponLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
 text = "Weapon: (set in code)"
-
-[node name="HealthBar" type="ProgressBar" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
-custom_minimum_size = Vector2(0, 8)
-size_flags_horizontal = 3
-max_value = 100.0
-value = 100.0
-show_percentage = false
-theme_override_styles/background = SubResource("StyleBoxFlat_hpb_bg")
-theme_override_styles/fill = SubResource("StyleBoxFlat_hpb_fill")
 
 [node name="HealthLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
 text = "HP: 100/100"
@@ -92,23 +97,61 @@ theme_override_constants/margin_right = 6
 theme_override_constants/margin_bottom = 5
 
 [node name="HintsLabel" type="Label" parent="HUD/BottomPanel/BottomMargin"]
-text = "WASD move | SPACE dash | auto weapon (placeholder) | ESC pause"
+text = "WASD move · SPACE dash · auto weapon · ESC pause/resume"
 
 [node name="EndRunButton" type="Button" parent="HUD"]
 offset_left = 1120.0
-offset_top = 4.0
+offset_top = 10.0
 offset_right = 1268.0
-offset_bottom = 26.0
+offset_bottom = 32.0
 text = "End Run"
 
-[node name="AttackFlash" type="Label" parent="HUD"]
+[node name="PauseMenu" type="CanvasLayer" parent="."]
+layer = 100
+process_mode = 3
 visible = false
-offset_left = 520.0
-offset_top = 4.0
-offset_right = 760.0
-offset_bottom = 22.0
-theme_override_colors/font_color = Color(0.95, 0.35, 0.35, 1)
-text = "ATTACK!"
+
+[node name="Dim" type="ColorRect" parent="PauseMenu"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.05, 0.06, 0.1, 0.88)
+
+[node name="Center" type="CenterContainer" parent="PauseMenu"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="PauseMenu/Center"]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="PauseMenu/Center/Panel"]
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="PauseMenu/Center/Panel/Margin"]
+theme_override_constants/separation = 12
+
+[node name="PauseTitle" type="Label" parent="PauseMenu/Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Paused"
 horizontal_alignment = 1
 
+[node name="ResumeButton" type="Button" parent="PauseMenu/Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Resume"
+
+[node name="PauseEndRunButton" type="Button" parent="PauseMenu/Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "End run"
+
 [connection signal="pressed" from="HUD/EndRunButton" to="." method="_on_end_run_button_pressed"]
+[connection signal="pressed" from="PauseMenu/Center/Panel/Margin/VBox/ResumeButton" to="." method="_on_pause_resume_pressed"]
+[connection signal="pressed" from="PauseMenu/Center/Panel/Margin/VBox/PauseEndRunButton" to="." method="_on_pause_end_run_pressed"]

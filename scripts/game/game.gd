@@ -21,24 +21,27 @@ var _weapon_timer := 0.0
 @onready var enemies: Node2D = $Enemies
 @onready var pickups: Node2D = $Pickups
 @onready var player_camera: Camera2D = $Player/Camera2D
-@onready var health_bar: ProgressBar = $HUD/TopPanel/HUDMargin/HUDVBox/HealthBar
 @onready var health_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/HealthLabel
 @onready var timer_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/TimeLabel
 @onready var crystal_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/CrystalLabel
-@onready var attack_flash: Label = $HUD/AttackFlash
+@onready var xp_bar: ProgressBar = $HUD/XpBar
 @onready var title_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/TitleLabel
 @onready var weapon_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/WeaponLabel
+@onready var bounds_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/BoundsLabel
+@onready var pause_menu: CanvasLayer = $PauseMenu
+@onready var background_music: AudioStreamPlayer = $BackgroundMusic
 
 var _elapsed_seconds := 0.0
-var _attack_flash_time_left := 0.0
 var _spawn_timer := 1.2
 var _crystals := 0
 var _player_level := 1
+var _kill_count := 0
+var _pause_open := false
 
 
 func _process(delta: float) -> void:
 	_elapsed_seconds += delta
-	timer_label.text = "Time: %.1f" % _elapsed_seconds
+	timer_label.text = "Time: %s  ·  Kills: %d" % [_format_clock(_elapsed_seconds), _kill_count]
 
 	var spawn_interval := maxf(0.55, 2.0 - _elapsed_seconds * 0.035)
 	_spawn_timer -= delta
@@ -49,25 +52,24 @@ func _process(delta: float) -> void:
 	_weapon_timer -= delta
 	if _weapon_timer <= 0.0:
 		_weapon_timer = _weapon_cooldown
-		_attack_flash_time_left = 0.12
-		attack_flash.visible = true
-		_damage_enemies_in_attack_range()
-
-	if _attack_flash_time_left > 0.0:
-		_attack_flash_time_left -= delta
-		if _attack_flash_time_left <= 0.0:
-			attack_flash.visible = false
+		_perform_weapon_attack()
 
 	player.position = player.position.clamp(ARENA_MIN, ARENA_MAX)
 
 
 func _ready() -> void:
+	var bgm_stream := background_music.stream
+	if bgm_stream is AudioStreamOggVorbis:
+		(bgm_stream as AudioStreamOggVorbis).loop = true
+	background_music.play()
 	_melee_damage = RunConfig.melee_damage
 	_attack_range = RunConfig.attack_range
 	_weapon_cooldown = RunConfig.weapon_cooldown
 	_weapon_timer = _weapon_cooldown * 0.25
 	title_label.text = "Run: %s" % RunConfig.display_name
-	weapon_label.text = "Weapon: %s (auto, placeholder)" % RunConfig.weapon_placeholder_name
+	weapon_label.text = "Weapon: %s (auto)" % RunConfig.weapon_placeholder_name
+	bounds_label.visible = false
+	pause_menu.visible = false
 	player_camera.make_current()
 	if player.has_signal("health_changed"):
 		player.health_changed.connect(_on_player_health_changed)
@@ -84,19 +86,44 @@ func _gems_needed_for_next_level() -> int:
 
 
 func _update_crystal_hud() -> void:
-	crystal_label.text = "Crystals: %d / %d  ·  Lv %d" % [_crystals, _gems_needed_for_next_level(), _player_level]
+	var need := _gems_needed_for_next_level()
+	crystal_label.text = "Crystals: %d / %d  ·  Lv %d" % [_crystals, need, _player_level]
+	xp_bar.max_value = float(need)
+	xp_bar.value = float(_crystals)
 
 
-func _damage_enemies_in_attack_range() -> void:
+func _find_closest_enemy_in_attack_range() -> Node2D:
+	var best: Node2D = null
+	var best_d2 := INF
+	var ppos := player.global_position
+	var r2 := _attack_range * _attack_range
 	for node in enemies.get_children():
 		if not node.has_method("take_damage"):
 			continue
-		if node.global_position.distance_to(player.global_position) > _attack_range:
+		var d2 := ppos.distance_squared_to(node.global_position)
+		if d2 > r2:
 			continue
-		node.take_damage(_melee_damage)
+		if d2 < best_d2:
+			best_d2 = d2
+			best = node
+	return best
+
+
+func _perform_weapon_attack() -> void:
+	var target := _find_closest_enemy_in_attack_range()
+	var aim := Vector2.RIGHT
+	if target != null:
+		aim = (target.global_position - player.global_position).normalized()
+	elif player.has_method(&"get_weapon_aim_direction"):
+		aim = player.get_weapon_aim_direction()
+	if player.has_method(&"play_weapon_attack"):
+		player.play_weapon_attack(_attack_range, aim)
+	if target != null:
+		target.take_damage(_melee_damage)
 
 
 func _on_enemy_died(spawn_position: Vector2) -> void:
+	_kill_count += 1
 	if randf() > CRYSTAL_DROP_CHANCE:
 		return
 	var crystal = CRYSTAL_SCENE.instantiate()
@@ -123,26 +150,61 @@ func _process_level_up_overflow() -> void:
 func _run_upgrade_screen() -> void:
 	get_tree().paused = true
 	var screen: CanvasLayer = UPGRADE_SCREEN_SCENE.instantiate()
+	if screen.has_method(&"set_level"):
+		screen.set_level(_player_level)
 	add_child(screen)
 	await screen.acknowledged
 	get_tree().paused = false
 
 
+func _finalize_run_summary() -> void:
+	RunConfig.last_run_time_seconds = _elapsed_seconds
+	RunConfig.last_run_level = _player_level
+	RunConfig.last_run_kills = _kill_count
+
+
 func _on_end_run_button_pressed() -> void:
+	_finalize_run_summary()
 	game_over_requested.emit()
 
 
-func _on_pause_requested() -> void:
+func on_pause_requested() -> void:
+	if get_tree().get_nodes_in_group(&"upgrade_screen").size() > 0:
+		return
+	if _pause_open:
+		_close_pause_menu()
+		return
+	_open_pause_menu()
+
+
+func _open_pause_menu() -> void:
+	_pause_open = true
+	get_tree().paused = true
+	pause_menu.visible = true
+
+
+func _close_pause_menu() -> void:
+	_pause_open = false
+	get_tree().paused = false
+	pause_menu.visible = false
+
+
+func _on_pause_resume_pressed() -> void:
+	_close_pause_menu()
+
+
+func _on_pause_end_run_pressed() -> void:
+	_close_pause_menu()
+	_finalize_run_summary()
 	game_over_requested.emit()
 
 
 func _on_player_health_changed(new_health: int, max_health: int) -> void:
-	health_bar.max_value = float(max_health)
-	health_bar.value = float(new_health)
 	health_label.text = "HP: %d/%d" % [new_health, max_health]
 
 
 func _on_player_died() -> void:
+	_finalize_run_summary()
 	game_over_requested.emit()
 
 
@@ -158,9 +220,32 @@ func _random_spawn_on_arena_edge() -> Vector2:
 			return Vector2(ARENA_MAX.x, randf_range(ARENA_MIN.y, ARENA_MAX.y))
 
 
+func _format_clock(seconds: float) -> String:
+	var s := int(floor(seconds))
+	var m := s / 60
+	s %= 60
+	return "%d:%02d" % [m, s]
+
+
+func _apply_difficulty_to_enemy(enemy: CharacterBody2D) -> void:
+	var t := _elapsed_seconds
+	var hp_mult := 1.0 + mini(t / 95.0, 3.25)
+	var spd_mult := 1.0 + mini(t / 140.0, 0.55)
+	enemy.max_health = int(round(32.0 * hp_mult))
+	enemy.move_speed = 58.0 * spd_mult
+
+
 func _spawn_enemy() -> void:
+	_spawn_one_enemy()
+	var t := _elapsed_seconds
+	if t > 42.0 and randf() < clampf((t - 42.0) / 220.0, 0.0, 0.42):
+		_spawn_one_enemy()
+
+
+func _spawn_one_enemy() -> void:
 	var enemy = ENEMY_SCENE.instantiate()
 	enemy.target = player
 	enemy.global_position = _random_spawn_on_arena_edge()
+	_apply_difficulty_to_enemy(enemy)
 	enemy.died.connect(_on_enemy_died)
 	enemies.add_child(enemy)
