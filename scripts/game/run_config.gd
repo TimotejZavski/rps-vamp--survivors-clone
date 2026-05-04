@@ -1,6 +1,6 @@
 extends Node
 
-## Carries the chosen character / weapon stub from CharacterSelect into Game (placeholder data).
+## Carries the chosen character and weapon data from CharacterSelect into Game.
 
 var character_id: String = "wizard"
 var display_name: String = "Imelda Belpaese"

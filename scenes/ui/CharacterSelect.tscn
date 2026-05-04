@@ -35,7 +35,7 @@ theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="Center/Panel/Margin/VBox"]
 layout_mode = 2
-text = "Choose character (placeholder UI)"
+text = "Choose your survivor"
 horizontal_alignment = 1
 
 [node name="CharacterList" type="ItemList" parent="Center/Panel/Margin/VBox"]

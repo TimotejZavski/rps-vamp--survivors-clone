@@ -7,6 +7,7 @@ const ARENA_MAX := Vector2(1100.0, 700.0)
 const ENEMY_SCENE := preload("res://scenes/game/Enemy.tscn")
 const CRYSTAL_SCENE := preload("res://scenes/game/Crystal.tscn")
 const UPGRADE_SCREEN_SCENE := preload("res://scenes/ui/UpgradeScreen.tscn")
+const UPGRADE_CATALOG := preload("res://scripts/game/upgrade_catalog.gd")
 
 const CRYSTAL_DROP_CHANCE := 0.75
 const BASE_CRYSTALS_PER_LEVEL := 5
@@ -16,6 +17,8 @@ var _attack_range := 88.0
 var _melee_damage := 36
 var _weapon_cooldown := 1.15
 var _weapon_timer := 0.0
+var _upgrade_catalog := UPGRADE_CATALOG.new()
+var _owned_upgrades: Dictionary = {}
 
 @onready var player: CharacterBody2D = $Player
 @onready var enemies: Node2D = $Enemies
@@ -67,7 +70,7 @@ func _ready() -> void:
 	_weapon_cooldown = RunConfig.weapon_cooldown
 	_weapon_timer = _weapon_cooldown * 0.25
 	title_label.text = "Run: %s" % RunConfig.display_name
-	weapon_label.text = "Weapon: %s (auto)" % RunConfig.weapon_placeholder_name
+	_refresh_weapon_hud()
 	bounds_label.visible = false
 	pause_menu.visible = false
 	player_camera.make_current()
@@ -149,12 +152,49 @@ func _process_level_up_overflow() -> void:
 
 func _run_upgrade_screen() -> void:
 	get_tree().paused = true
-	var screen: CanvasLayer = UPGRADE_SCREEN_SCENE.instantiate()
+	var screen = UPGRADE_SCREEN_SCENE.instantiate()
 	if screen.has_method(&"set_level"):
 		screen.set_level(_player_level)
+	if screen.has_method(&"set_choices"):
+		screen.set_choices(_upgrade_catalog.get_choices(_owned_upgrades))
 	add_child(screen)
 	await screen.acknowledged
+	if is_instance_valid(screen) and screen.has_method(&"get_selected_upgrade_id"):
+		_apply_upgrade(screen.get_selected_upgrade_id())
 	get_tree().paused = false
+
+
+func _apply_upgrade(choice_id: String) -> void:
+	if choice_id.is_empty():
+		return
+	_owned_upgrades[choice_id] = int(_owned_upgrades.get(choice_id, 0)) + 1
+	_upgrade_catalog.apply_choice(choice_id, self, player)
+	_refresh_weapon_hud()
+
+
+func _refresh_weapon_hud() -> void:
+	weapon_label.text = "Weapon: %s (auto)  ·  %d dmg  ·  %.0f range  ·  %.2fs" % [
+		RunConfig.weapon_placeholder_name,
+		_melee_damage,
+		_attack_range,
+		_weapon_cooldown,
+	]
+
+
+func apply_weapon_damage_bonus(amount: int) -> void:
+	_melee_damage += amount
+	_refresh_weapon_hud()
+
+
+func apply_attack_range_bonus(amount: float) -> void:
+	_attack_range += amount
+	_refresh_weapon_hud()
+
+
+func apply_weapon_cooldown_bonus(delta_amount: float) -> void:
+	_weapon_cooldown = maxf(0.30, _weapon_cooldown + delta_amount)
+	_weapon_timer = minf(_weapon_timer, _weapon_cooldown)
+	_refresh_weapon_hud()
 
 
 func _finalize_run_summary() -> void:
