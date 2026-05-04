@@ -46,11 +46,13 @@ func _rebuild() -> void:
 	if _choices.is_empty():
 		_hint.text = "Pick an upgrade next."
 		_continue_button.visible = true
+		_continue_button.grab_focus()
 		return
 
 	_hint.text = "Pick one bonus for this run."
 	_continue_button.visible = false
 
+	var first_button: Button = null
 	for choice in _choices:
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(340, 0)
@@ -58,6 +60,11 @@ func _rebuild() -> void:
 		button.text = "%s\n%s" % [str(choice["label"]), str(choice["description"])]
 		button.pressed.connect(_on_choice_pressed.bind(str(choice["id"])))
 		_choices_box.add_child(button)
+		if first_button == null:
+			first_button = button
+
+	if first_button != null:
+		first_button.grab_focus()
 
 
 func _on_choice_pressed(choice_id: String) -> void:
