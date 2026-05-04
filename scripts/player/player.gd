@@ -66,6 +66,26 @@ func take_damage(amount: int) -> void:
 		died.emit()
 
 
+func heal(amount: int) -> void:
+	if amount <= 0 or current_health <= 0:
+		return
+	current_health = mini(max_health, current_health + amount)
+	health_changed.emit(current_health, max_health)
+
+
+func apply_bonus_max_health(amount: int) -> void:
+	if amount <= 0:
+		return
+	max_health += amount
+	current_health += amount
+	health_changed.emit(current_health, max_health)
+
+
+func apply_move_speed_bonus(amount: float) -> void:
+	move_speed += amount
+	dash_speed += amount * 1.35
+
+
 func _physics_process(delta: float) -> void:
 	_input_move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if _input_move != Vector2.ZERO:
