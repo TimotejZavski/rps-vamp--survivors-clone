@@ -4,9 +4,9 @@ signal run_requested(character_id: String)
 signal back_requested
 
 const ROWS := [
-	{"id": "wizard", "label": "Imelda — Magic Wand (placeholder)"},
-	{"id": "knight", "label": "Krochi — Sword Slash (placeholder)"},
-	{"id": "cleric", "label": "Suor Clerici — Holy Aura (placeholder)"},
+	{"id": "wizard", "label": "Imelda - Magic Wand"},
+	{"id": "knight", "label": "Krochi - Sword Slash"},
+	{"id": "cleric", "label": "Suor Clerici - Holy Aura"},
 ]
 
 const PORTRAIT_BY_ID := {
