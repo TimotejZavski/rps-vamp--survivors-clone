@@ -48,8 +48,10 @@ func _on_list_item_activated(_index: int) -> void:
 
 
 func _on_begin_pressed() -> void:
+	Sfx.play("select")
 	run_requested.emit(_get_selected_id())
 
 
 func _on_back_pressed() -> void:
+	Sfx.play("select")
 	back_requested.emit()

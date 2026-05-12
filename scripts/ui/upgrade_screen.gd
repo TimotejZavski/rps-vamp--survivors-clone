@@ -68,11 +68,13 @@ func _rebuild() -> void:
 
 
 func _on_choice_pressed(choice_id: String) -> void:
+	Sfx.play("select")
 	selected_upgrade_id = choice_id
 	acknowledged.emit()
 	call_deferred("queue_free")
 
 
 func _on_continue_pressed() -> void:
+	Sfx.play("select")
 	acknowledged.emit()
 	call_deferred("queue_free")

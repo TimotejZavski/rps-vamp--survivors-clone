@@ -19,8 +19,10 @@ func _ready() -> void:
 
 
 func _on_start_button_pressed() -> void:
+	Sfx.play("select")
 	start_requested.emit()
 
 
 func _on_quit_button_pressed() -> void:
+	Sfx.play("select")
 	quit_requested.emit()

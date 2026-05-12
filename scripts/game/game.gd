@@ -136,6 +136,7 @@ func _on_enemy_died(spawn_position: Vector2) -> void:
 
 
 func _on_crystal_collected() -> void:
+	Sfx.play("collect")
 	_crystals += 1
 	_update_crystal_hud()
 	await _process_level_up_overflow()
@@ -151,6 +152,7 @@ func _process_level_up_overflow() -> void:
 
 
 func _run_upgrade_screen() -> void:
+	Sfx.play("levelup")
 	get_tree().paused = true
 	var screen = UPGRADE_SCREEN_SCENE.instantiate()
 	if screen.has_method(&"set_level"):
@@ -244,6 +246,7 @@ func _on_player_health_changed(new_health: int, max_health: int) -> void:
 
 
 func _on_player_died() -> void:
+	Sfx.play("gameover")
 	_finalize_run_summary()
 	game_over_requested.emit()
 
