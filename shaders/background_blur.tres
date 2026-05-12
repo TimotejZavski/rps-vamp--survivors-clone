@@ -1,0 +1,7 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://bbgblur1mat01"]
+
+[ext_resource type="Shader" path="res://shaders/background_blur.gdshader" id="1_blur"]
+
+[resource]
+shader = ExtResource("1_blur")
+shader_parameter/blur_radius = 8.0

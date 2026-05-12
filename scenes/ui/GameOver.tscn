@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://de50f03kn5jvv"]
+[gd_scene load_steps=5 format=3 uid="uid://de50f03kn5jvv"]
 
 [ext_resource type="Script" path="res://scripts/ui/game_over.gd" id="1_gfx64"]
+[ext_resource type="Texture2D" uid="uid://dqtpv31x5wo5y" path="res://ui/main_menu_cover.jpg" id="2_bg"]
+[ext_resource type="Theme" uid="uid://c8k2hm4n1menu" path="res://theme/main_menu_buttons.tres" id="3_btn_theme"]
+[ext_resource type="Material" uid="uid://bbgblur1mat01" path="res://shaders/background_blur.tres" id="4_blur"]
 
 [node name="GameOver" type="Control"]
 layout_mode = 3
@@ -10,6 +13,29 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_gfx64")
+
+[node name="Background" type="TextureRect" parent="."]
+material = ExtResource("4_blur")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="DarkOverlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.65)
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1
@@ -21,25 +47,38 @@ grow_vertical = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme = ExtResource("3_btn_theme")
+theme_override_constants/separation = 28
 
 [node name="TitleLabel" type="Label" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
 text = "Game Over"
 horizontal_alignment = 1
+theme_override_font_sizes/font_size = 88
+theme_override_colors/font_color = Color(0.95, 0.32, 0.28, 1.0)
 
 [node name="StatsLabel" type="Label" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
 text = "Time —  ·  Level —  ·  Enemies —"
 horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+theme_override_colors/font_color = Color(0.92, 0.9, 0.78, 1.0)
+
+[node name="Spacer" type="Control" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
 
 [node name="RetryButton" type="Button" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(320, 68)
 layout_mode = 2
 text = "Retry"
+theme_override_font_sizes/font_size = 32
 
 [node name="MainMenuButton" type="Button" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(320, 68)
 layout_mode = 2
 text = "Main Menu"
+theme_override_font_sizes/font_size = 32
 
 [connection signal="pressed" from="CenterContainer/VBoxContainer/RetryButton" to="." method="_on_retry_button_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/MainMenuButton" to="." method="_on_main_menu_button_pressed"]

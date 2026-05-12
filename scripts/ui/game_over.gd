@@ -22,8 +22,10 @@ func _ready() -> void:
 
 
 func _on_retry_button_pressed() -> void:
+	Sfx.play("select")
 	retry_requested.emit()
 
 
 func _on_main_menu_button_pressed() -> void:
+	Sfx.play("select")
 	main_menu_requested.emit()
