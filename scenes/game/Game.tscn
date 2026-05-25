@@ -13,6 +13,18 @@ border_color = Color(0.22, 0.26, 0.36, 1)
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_fill"]
 bg_color = Color(0.22, 0.55, 0.95, 1)
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_timer_bg"]
+bg_color = Color(0.07, 0.08, 0.12, 0.78)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.3, 0.35, 0.45, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
 [node name="Game" type="Node2D"]
 script = ExtResource("1_t8hjr")
 
@@ -51,60 +63,44 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_xp_fill")
 max_value = 5.0
 show_percentage = false
 
-[node name="TopPanel" type="PanelContainer" parent="HUD"]
-offset_left = 4.0
+[node name="InvHudPanel" type="PanelContainer" parent="HUD"]
+offset_left = 8.0
 offset_top = 10.0
-offset_right = 200.0
-offset_bottom = 108.0
+offset_right = 360.0
+offset_bottom = 320.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_timer_bg")
 
-[node name="HUDMargin" type="MarginContainer" parent="HUD/TopPanel"]
-theme_override_constants/margin_left = 6
-theme_override_constants/margin_top = 5
-theme_override_constants/margin_right = 6
-theme_override_constants/margin_bottom = 5
+[node name="InvHudMargin" type="MarginContainer" parent="HUD/InvHudPanel"]
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
 
-[node name="HUDVBox" type="VBoxContainer" parent="HUD/TopPanel/HUDMargin"]
-theme_override_constants/separation = 2
+[node name="InvHudLabel" type="Label" parent="HUD/InvHudPanel/InvHudMargin"]
+text = "(set in code)"
+theme_override_font_sizes/font_size = 16
 
-[node name="TitleLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
-text = "Run: (set in code)"
+[node name="BigTimer" type="PanelContainer" parent="HUD"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -84.0
+offset_top = 8.0
+offset_right = 84.0
+offset_bottom = 52.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_timer_bg")
 
-[node name="WeaponLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
-text = "Weapon: (set in code)"
+[node name="BigTimerMargin" type="MarginContainer" parent="HUD/BigTimer"]
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 4
 
-[node name="HealthLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
-text = "HP: 100/100"
-
-[node name="TimeLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
-text = "Time: 0.0"
-
-[node name="CrystalLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
-text = "Crystals: 0 / 5  ·  Lv 1"
-
-[node name="BoundsLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
-text = "Arena bounds: x[-11000,11000], y[-7000,7000]"
-
-[node name="BottomPanel" type="PanelContainer" parent="HUD"]
-offset_left = 4.0
-offset_top = 656.0
-offset_right = 420.0
-offset_bottom = 712.0
-
-[node name="BottomMargin" type="MarginContainer" parent="HUD/BottomPanel"]
-theme_override_constants/margin_left = 6
-theme_override_constants/margin_top = 5
-theme_override_constants/margin_right = 6
-theme_override_constants/margin_bottom = 5
-
-[node name="HintsLabel" type="Label" parent="HUD/BottomPanel/BottomMargin"]
-text = "WASD move · SPACE dash · auto weapon · ESC pause/resume"
-
-[node name="EndRunButton" type="Button" parent="HUD"]
-offset_left = 1120.0
-offset_top = 10.0
-offset_right = 1268.0
-offset_bottom = 32.0
-text = "End Run"
+[node name="BigTimerLabel" type="Label" parent="HUD/BigTimer/BigTimerMargin"]
+text = "0:00"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
 
 [node name="PauseMenu" type="CanvasLayer" parent="."]
 layer = 100
@@ -143,15 +139,61 @@ theme_override_constants/separation = 12
 layout_mode = 2
 text = "Paused"
 horizontal_alignment = 1
+theme_override_font_sizes/font_size = 40
 
 [node name="ResumeButton" type="Button" parent="PauseMenu/Center/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(320, 72)
 layout_mode = 2
 text = "Resume"
+theme_override_font_sizes/font_size = 32
+
+[node name="InventoryButton" type="Button" parent="PauseMenu/Center/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(320, 72)
+layout_mode = 2
+text = "Inventory"
+theme_override_font_sizes/font_size = 32
 
 [node name="PauseEndRunButton" type="Button" parent="PauseMenu/Center/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(320, 72)
 layout_mode = 2
 text = "End run"
+theme_override_font_sizes/font_size = 32
 
-[connection signal="pressed" from="HUD/EndRunButton" to="." method="_on_end_run_button_pressed"]
+[node name="InventoryPanel" type="PanelContainer" parent="PauseMenu"]
+visible = false
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -440.0
+offset_top = -200.0
+offset_right = -20.0
+offset_bottom = 200.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="InvMargin" type="MarginContainer" parent="PauseMenu/InventoryPanel"]
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="InvVBox" type="VBoxContainer" parent="PauseMenu/InventoryPanel/InvMargin"]
+theme_override_constants/separation = 8
+
+[node name="InvTitle" type="Label" parent="PauseMenu/InventoryPanel/InvMargin/InvVBox"]
+layout_mode = 2
+text = "Inventory"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+
+[node name="InvBody" type="Label" parent="PauseMenu/InventoryPanel/InvMargin/InvVBox"]
+layout_mode = 2
+text = "(set in code)"
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 22
+
 [connection signal="pressed" from="PauseMenu/Center/Panel/Margin/VBox/ResumeButton" to="." method="_on_pause_resume_pressed"]
+[connection signal="pressed" from="PauseMenu/Center/Panel/Margin/VBox/InventoryButton" to="." method="_on_pause_inventory_pressed"]
 [connection signal="pressed" from="PauseMenu/Center/Panel/Margin/VBox/PauseEndRunButton" to="." method="_on_pause_end_run_pressed"]

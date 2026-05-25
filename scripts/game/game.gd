@@ -14,9 +14,23 @@ const CRYSTAL_SCENE := preload("res://scenes/game/Crystal.tscn")
 const UPGRADE_SCREEN_SCENE := preload("res://scenes/ui/UpgradeScreen.tscn")
 const UPGRADE_CATALOG := preload("res://scripts/game/upgrade_catalog.gd")
 
-const CRYSTAL_DROP_CHANCE := 0.75
+const CRYSTAL_DROP_CHANCE := 0.97
 const BASE_CRYSTALS_PER_LEVEL := 5
 const EXTRA_CRYSTALS_PER_LEVEL_TIER := 4
+
+## Once this many blue crystals are on the ground, neighbors within MERGE_RADIUS
+## are fused into a single green crystal carrying the summed value.
+const CRYSTAL_MERGE_THRESHOLD := 30
+const CRYSTAL_MERGE_RADIUS := 56.0
+const CRYSTAL_MERGE_CELL := 64.0
+const CRYSTAL_MERGE_CHECK_INTERVAL := 0.4
+
+## Enemy-vs-enemy separation. Each enemy hitbox is ~14x14 (half = 7); cell size needs to
+## be >= the desired min separation so a 3x3 neighbor query covers all possible overlaps.
+const ENEMY_SEP_HALF := 7.0
+const ENEMY_SEP_CELL := 22.0
+## Fraction of penetration we resolve per frame. Lower = softer, less jitter under stacking.
+const ENEMY_SEP_PUSH := 0.5
 
 var _attack_range := 88.0
 var _melee_damage := 36
@@ -29,14 +43,12 @@ var _owned_upgrades: Dictionary = {}
 @onready var enemies: Node2D = $Enemies
 @onready var pickups: Node2D = $Pickups
 @onready var player_camera: Camera2D = $Player/Camera2D
-@onready var health_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/HealthLabel
-@onready var timer_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/TimeLabel
-@onready var crystal_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/CrystalLabel
 @onready var xp_bar: ProgressBar = $HUD/XpBar
-@onready var title_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/TitleLabel
-@onready var weapon_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/WeaponLabel
-@onready var bounds_label: Label = $HUD/TopPanel/HUDMargin/HUDVBox/BoundsLabel
+@onready var big_timer_label: Label = $HUD/BigTimer/BigTimerMargin/BigTimerLabel
+@onready var inv_hud_label: Label = $HUD/InvHudPanel/InvHudMargin/InvHudLabel
 @onready var pause_menu: CanvasLayer = $PauseMenu
+@onready var inventory_panel: PanelContainer = $PauseMenu/InventoryPanel
+@onready var inventory_body: Label = $PauseMenu/InventoryPanel/InvMargin/InvVBox/InvBody
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
 
 var _elapsed_seconds := 0.0
@@ -45,13 +57,17 @@ var _crystals := 0
 var _player_level := 1
 var _kill_count := 0
 var _pause_open := false
+var _crystal_merge_timer := 0.0
 
 
 func _process(delta: float) -> void:
 	_elapsed_seconds += delta
-	timer_label.text = "Time: %s  ·  Kills: %d" % [_format_clock(_elapsed_seconds), _kill_count]
+	big_timer_label.text = _format_clock(_elapsed_seconds)
+	_refresh_inv_hud()
 
-	var spawn_interval := maxf(0.55, 2.0 - _elapsed_seconds * 0.035)
+	# +50% baseline spawn rate (interval 2.0 -> 1.33) and a steeper ramp so density
+	# climbs noticeably as the run goes on. Floor lowered to 0.30s for late-game swarm.
+	var spawn_interval := maxf(0.30, 1.33 - _elapsed_seconds * 0.05)
 	_spawn_timer -= delta
 	if _spawn_timer <= 0.0:
 		_spawn_timer = spawn_interval
@@ -63,6 +79,10 @@ func _process(delta: float) -> void:
 		_perform_weapon_attack()
 
 	_cull_distant_enemies()
+	_crystal_merge_timer -= delta
+	if _crystal_merge_timer <= 0.0:
+		_crystal_merge_timer = CRYSTAL_MERGE_CHECK_INTERVAL
+		_maybe_merge_crystals()
 	player.position = player.position.clamp(ARENA_MIN, ARENA_MAX)
 
 
@@ -75,9 +95,6 @@ func _ready() -> void:
 	_attack_range = RunConfig.attack_range
 	_weapon_cooldown = RunConfig.weapon_cooldown
 	_weapon_timer = _weapon_cooldown * 0.25
-	title_label.text = "Run: %s" % RunConfig.display_name
-	_refresh_weapon_hud()
-	bounds_label.visible = false
 	pause_menu.visible = false
 	player_camera.make_current()
 	if player.has_signal("health_changed"):
@@ -96,7 +113,6 @@ func _gems_needed_for_next_level() -> int:
 
 func _update_crystal_hud() -> void:
 	var need := _gems_needed_for_next_level()
-	crystal_label.text = "Crystals: %d / %d  ·  Lv %d" % [_crystals, need, _player_level]
 	xp_bar.max_value = float(need)
 	xp_bar.value = float(_crystals)
 
@@ -138,14 +154,78 @@ func _on_enemy_died(spawn_position: Vector2) -> void:
 	var crystal = CRYSTAL_SCENE.instantiate()
 	crystal.global_position = spawn_position
 	pickups.add_child(crystal)
+	crystal.set_gem(1, 0)
 	crystal.collected.connect(_on_crystal_collected)
 
 
-func _on_crystal_collected() -> void:
+func _on_crystal_collected(value: int) -> void:
 	Sfx.play("collect")
-	_crystals += 1
+	_crystals += maxi(1, value)
 	_update_crystal_hud()
 	await _process_level_up_overflow()
+
+
+## Spatial-hash merge: when blue crystals stack up, fuse nearby ones into a single green
+## that carries the summed value. Keeps the pickup node count bounded and saves the player
+## from chasing dozens of individual gems.
+func _maybe_merge_crystals() -> void:
+	var blues: Array[Node2D] = []
+	for c in pickups.get_children():
+		if not (c is Node2D):
+			continue
+		if not c.has_method(&"set_gem"):
+			continue
+		if int(c.get("tier")) != 0:
+			continue
+		blues.append(c)
+
+	if blues.size() < CRYSTAL_MERGE_THRESHOLD:
+		return
+
+	var cell := CRYSTAL_MERGE_CELL
+	var buckets: Dictionary = {}
+	for b in blues:
+		var key := Vector2i(int(floor(b.global_position.x / cell)), int(floor(b.global_position.y / cell)))
+		if not buckets.has(key):
+			buckets[key] = [] as Array[Node2D]
+		(buckets[key] as Array[Node2D]).append(b)
+
+	var used: Dictionary = {}
+	var r2 := CRYSTAL_MERGE_RADIUS * CRYSTAL_MERGE_RADIUS
+	for b in blues:
+		if used.has(b):
+			continue
+		var group: Array[Node2D] = [b]
+		used[b] = true
+		var cx := int(floor(b.global_position.x / cell))
+		var cy := int(floor(b.global_position.y / cell))
+		for ox in range(-1, 2):
+			for oy in range(-1, 2):
+				var k := Vector2i(cx + ox, cy + oy)
+				if not buckets.has(k):
+					continue
+				for o in (buckets[k] as Array[Node2D]):
+					if used.has(o):
+						continue
+					if b.global_position.distance_squared_to(o.global_position) <= r2:
+						group.append(o)
+						used[o] = true
+		if group.size() < 2:
+			continue
+
+		var sum_val := 0
+		var avg := Vector2.ZERO
+		for g in group:
+			sum_val += int(g.get("value"))
+			avg += g.global_position
+			g.queue_free()
+		avg /= float(group.size())
+
+		var green = CRYSTAL_SCENE.instantiate()
+		green.global_position = avg
+		pickups.add_child(green)
+		green.set_gem(sum_val, 1)
+		green.collected.connect(_on_crystal_collected)
 
 
 func _process_level_up_overflow() -> void:
@@ -181,12 +261,8 @@ func _apply_upgrade(choice_id: String) -> void:
 
 
 func _refresh_weapon_hud() -> void:
-	weapon_label.text = "Weapon: %s (auto)  ·  %d dmg  ·  %.0f range  ·  %.2fs" % [
-		RunConfig.weapon_placeholder_name,
-		_melee_damage,
-		_attack_range,
-		_weapon_cooldown,
-	]
+	# Old separate weapon label is gone; the inventory HUD covers it now.
+	pass
 
 
 func apply_weapon_damage_bonus(amount: int) -> void:
@@ -211,11 +287,6 @@ func _finalize_run_summary() -> void:
 	RunConfig.last_run_kills = _kill_count
 
 
-func _on_end_run_button_pressed() -> void:
-	_finalize_run_summary()
-	game_over_requested.emit()
-
-
 func on_pause_requested() -> void:
 	if get_tree().get_nodes_in_group(&"upgrade_screen").size() > 0:
 		return
@@ -229,16 +300,24 @@ func _open_pause_menu() -> void:
 	_pause_open = true
 	get_tree().paused = true
 	pause_menu.visible = true
+	inventory_panel.visible = false
 
 
 func _close_pause_menu() -> void:
 	_pause_open = false
 	get_tree().paused = false
 	pause_menu.visible = false
+	inventory_panel.visible = false
 
 
 func _on_pause_resume_pressed() -> void:
 	_close_pause_menu()
+
+
+func _on_pause_inventory_pressed() -> void:
+	inventory_panel.visible = not inventory_panel.visible
+	if inventory_panel.visible:
+		_refresh_inventory_panel()
 
 
 func _on_pause_end_run_pressed() -> void:
@@ -247,8 +326,53 @@ func _on_pause_end_run_pressed() -> void:
 	game_over_requested.emit()
 
 
-func _on_player_health_changed(new_health: int, max_health: int) -> void:
-	health_label.text = "HP: %d/%d" % [new_health, max_health]
+func _build_inventory_text(full: bool) -> String:
+	var max_hp := 0
+	var cur_hp := 0
+	var move_spd := 0.0
+	if player != null:
+		max_hp = int(player.get("max_health"))
+		cur_hp = int(player.get("current_health"))
+		move_spd = float(player.get("move_speed"))
+
+	var lines: Array[String] = []
+	lines.append("%s  ·  Lv %d" % [RunConfig.display_name, _player_level])
+	lines.append("HP: %d / %d" % [cur_hp, max_hp])
+	lines.append("Kills: %d" % _kill_count)
+	lines.append("")
+	lines.append("Weapons")
+	lines.append("  %s  (dmg %d, range %.0f, cd %.2fs)" % [
+		RunConfig.weapon_placeholder_name, _melee_damage, _attack_range, _weapon_cooldown
+	])
+	if full:
+		lines.append("")
+		lines.append("Stats")
+		lines.append("  Move speed: %.0f" % move_spd)
+	lines.append("")
+	lines.append("Upgrades")
+	if _owned_upgrades.is_empty():
+		lines.append("  (none yet)")
+	else:
+		for id in _owned_upgrades.keys():
+			var rank := int(_owned_upgrades[id])
+			var title: String = id
+			if UpgradeCatalog.DEFINITIONS.has(id):
+				title = str(UpgradeCatalog.DEFINITIONS[id]["title"])
+			lines.append("  %s  x%d" % [title, rank])
+	return "\n".join(lines)
+
+
+func _refresh_inv_hud() -> void:
+	inv_hud_label.text = _build_inventory_text(false)
+
+
+func _refresh_inventory_panel() -> void:
+	inventory_body.text = _build_inventory_text(true)
+
+
+func _on_player_health_changed(_new_health: int, _max_health: int) -> void:
+	# HP is shown in the live inventory HUD (refreshed each frame) + the floating bar under the player.
+	pass
 
 
 func _on_player_died() -> void:
@@ -264,6 +388,64 @@ func _random_spawn_on_arena_edge() -> Vector2:
 	var offset := Vector2(cos(angle), sin(angle)) * radius
 	var pos := player.global_position + offset
 	return pos.clamp(ARENA_MIN, ARENA_MAX)
+
+
+func _physics_process(_delta: float) -> void:
+	_resolve_enemy_separation()
+
+
+## Spatial-hash separation: bucket all live enemies by integer cell, then each enemy
+## only inspects the 9 cells around it. Cost is O(n) average with a small constant.
+func _resolve_enemy_separation() -> void:
+	var min_sep := ENEMY_SEP_HALF * 2.0
+	var cell := ENEMY_SEP_CELL
+	var buckets: Dictionary = {}
+	var live: Array[Node2D] = []
+
+	for n in enemies.get_children():
+		if not (n is Node2D):
+			continue
+		var body := n as Node2D
+		# Dying enemies zero their collision_layer in enemy.gd; skip them so corpses don't push.
+		if "collision_layer" in body and int(body.get("collision_layer")) == 0:
+			continue
+		live.append(body)
+		var key := Vector2i(int(floor(body.global_position.x / cell)), int(floor(body.global_position.y / cell)))
+		if not buckets.has(key):
+			buckets[key] = [] as Array[Node2D]
+		(buckets[key] as Array[Node2D]).append(body)
+
+	for body in live:
+		var cx := int(floor(body.global_position.x / cell))
+		var cy := int(floor(body.global_position.y / cell))
+		for ox in range(-1, 2):
+			for oy in range(-1, 2):
+				var k := Vector2i(cx + ox, cy + oy)
+				if not buckets.has(k):
+					continue
+				for other in (buckets[k] as Array[Node2D]):
+					if other == body:
+						continue
+					var d := body.global_position - other.global_position
+					var ax := absf(d.x)
+					var ay := absf(d.y)
+					if ax >= min_sep or ay >= min_sep:
+						continue
+					# Perfect overlap: nudge in a deterministic-but-distinct direction so
+					# stacked spawns don't oscillate around a shared point.
+					if ax < 0.001 and ay < 0.001:
+						var jitter := float(body.get_instance_id() & 7) * 0.001 + 0.05
+						body.global_position.x += jitter
+						continue
+					var pen_x := min_sep - ax
+					var pen_y := min_sep - ay
+					# Resolve along the shallower axis (smaller MTV); split push between the two.
+					if pen_x < pen_y:
+						var sx := 1.0 if d.x >= 0.0 else -1.0
+						body.global_position.x += sx * pen_x * ENEMY_SEP_PUSH
+					else:
+						var sy := 1.0 if d.y >= 0.0 else -1.0
+						body.global_position.y += sy * pen_y * ENEMY_SEP_PUSH
 
 
 func _cull_distant_enemies() -> void:
@@ -294,7 +476,12 @@ func _apply_difficulty_to_enemy(enemy: CharacterBody2D) -> void:
 func _spawn_enemy() -> void:
 	_spawn_one_enemy()
 	var t := _elapsed_seconds
-	if t > 42.0 and randf() < clampf((t - 42.0) / 220.0, 0.0, 0.42):
+	# Extra spawns kick in earlier (30s) and ramp higher (up to ~65% chance) for
+	# a thicker mid/late game.
+	if t > 30.0 and randf() < clampf((t - 30.0) / 150.0, 0.0, 0.65):
+		_spawn_one_enemy()
+	# Second extra spawn past 90s for true swarm pressure.
+	if t > 90.0 and randf() < clampf((t - 90.0) / 240.0, 0.0, 0.5):
 		_spawn_one_enemy()
 
 
