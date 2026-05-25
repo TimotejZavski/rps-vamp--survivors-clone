@@ -24,7 +24,7 @@ stream = ExtResource("4_bgm")
 z_index = -500
 z_as_relative = false
 color = Color(0.14, 0.34, 0.2, 1)
-polygon = PackedVector2Array(-1200, -800, 1200, -800, 1200, 800, -1200, 800)
+polygon = PackedVector2Array(-11200, -7100, 11200, -7100, 11200, 7100, -11200, 7100)
 
 [node name="ProceduralForest" type="Node2D" parent="."]
 z_index = -120
@@ -82,7 +82,7 @@ text = "Time: 0.0"
 text = "Crystals: 0 / 5  ·  Lv 1"
 
 [node name="BoundsLabel" type="Label" parent="HUD/TopPanel/HUDMargin/HUDVBox"]
-text = "Arena bounds: x[-1100,1100], y[-700,700]"
+text = "Arena bounds: x[-11000,11000], y[-7000,7000]"
 
 [node name="BottomPanel" type="PanelContainer" parent="HUD"]
 offset_left = 4.0

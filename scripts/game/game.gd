@@ -2,8 +2,13 @@ extends Node2D
 
 signal game_over_requested
 
-const ARENA_MIN := Vector2(-1100.0, -700.0)
-const ARENA_MAX := Vector2(1100.0, 700.0)
+const ARENA_MIN := Vector2(-11000.0, -7000.0)
+const ARENA_MAX := Vector2(11000.0, 7000.0)
+## Distance from player at which to spawn enemies (just outside the ~522x294 visible area at zoom 2.45).
+const SPAWN_RING_RADIUS := 360.0
+const SPAWN_RING_JITTER := 90.0
+## Enemies farther than this from the player are culled; keeps the active pool bounded.
+const ENEMY_DESPAWN_RADIUS := 760.0
 const ENEMY_SCENE := preload("res://scenes/game/Enemy.tscn")
 const CRYSTAL_SCENE := preload("res://scenes/game/Crystal.tscn")
 const UPGRADE_SCREEN_SCENE := preload("res://scenes/ui/UpgradeScreen.tscn")
@@ -57,6 +62,7 @@ func _process(delta: float) -> void:
 		_weapon_timer = _weapon_cooldown
 		_perform_weapon_attack()
 
+	_cull_distant_enemies()
 	player.position = player.position.clamp(ARENA_MIN, ARENA_MAX)
 
 
@@ -252,15 +258,22 @@ func _on_player_died() -> void:
 
 
 func _random_spawn_on_arena_edge() -> Vector2:
-	match randi() % 4:
-		0:
-			return Vector2(randf_range(ARENA_MIN.x, ARENA_MAX.x), ARENA_MIN.y)
-		1:
-			return Vector2(randf_range(ARENA_MIN.x, ARENA_MAX.x), ARENA_MAX.y)
-		2:
-			return Vector2(ARENA_MIN.x, randf_range(ARENA_MIN.y, ARENA_MAX.y))
-		_:
-			return Vector2(ARENA_MAX.x, randf_range(ARENA_MIN.y, ARENA_MAX.y))
+	## Spawn just outside the player's view on a jittered ring, then clamp inside world bounds.
+	var angle := randf() * TAU
+	var radius := SPAWN_RING_RADIUS + randf_range(0.0, SPAWN_RING_JITTER)
+	var offset := Vector2(cos(angle), sin(angle)) * radius
+	var pos := player.global_position + offset
+	return pos.clamp(ARENA_MIN, ARENA_MAX)
+
+
+func _cull_distant_enemies() -> void:
+	var ppos := player.global_position
+	var r2 := ENEMY_DESPAWN_RADIUS * ENEMY_DESPAWN_RADIUS
+	for node in enemies.get_children():
+		if not (node is Node2D):
+			continue
+		if (node as Node2D).global_position.distance_squared_to(ppos) > r2:
+			node.queue_free()
 
 
 func _format_clock(seconds: float) -> String:
