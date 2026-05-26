@@ -4,6 +4,11 @@ extends RefCounted
 
 const _DEFS := {
 	"magic_wand": preload("res://scripts/weapons/weapons/magic_wand.gd"),
+	"knife": preload("res://scripts/weapons/weapons/knife.gd"),
+	"garlic": preload("res://scripts/weapons/weapons/garlic.gd"),
+	"axe": preload("res://scripts/weapons/weapons/axe.gd"),
+	"king_bible": preload("res://scripts/weapons/weapons/king_bible.gd"),
+	"whip": preload("res://scripts/weapons/weapons/whip.gd"),
 }
 
 

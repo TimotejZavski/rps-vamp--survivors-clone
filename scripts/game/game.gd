@@ -15,8 +15,11 @@ const UPGRADE_SCREEN_SCENE := preload("res://scenes/ui/UpgradeScreen.tscn")
 const UPGRADE_CATALOG := preload("res://scripts/game/upgrade_catalog.gd")
 const WEAPON_REGISTRY := preload("res://scripts/weapons/weapon_registry.gd")
 const WEAPON_INVENTORY := preload("res://scripts/weapons/weapon_inventory.gd")
-const WEAPON_ICON_SIZE := Vector2(36, 36)
-const PAUSE_WEAPON_ICON_SIZE := Vector2(64, 64)
+const WEAPON_ICON_SIZE := Vector2(64, 64)
+const PAUSE_WEAPON_ICON_SIZE := Vector2(72, 72)
+const LEVEL_DOT_SIZE := Vector2(6, 6)
+const LEVEL_DOT_FILLED := Color(1.0, 0.85, 0.32, 1.0)
+const LEVEL_DOT_EMPTY := Color(0.28, 0.30, 0.38, 0.65)
 
 const CRYSTAL_DROP_CHANCE := 0.97
 const BASE_CRYSTALS_PER_LEVEL := 5
@@ -38,17 +41,16 @@ const ENEMY_SEP_PUSH := 0.5
 
 var _inventory: WeaponInventory = WEAPON_INVENTORY.new()
 var _upgrade_catalog := UPGRADE_CATALOG.new()
-var _owned_upgrades: Dictionary = {}
+var _passive_ranks: Dictionary = {}
 
 @onready var player: CharacterBody2D = $Player
 @onready var enemies: Node2D = $Enemies
 @onready var projectiles: Node2D = $Projectiles
 @onready var pickups: Node2D = $Pickups
 @onready var player_camera: Camera2D = $Player/Camera2D
-@onready var xp_bar: ProgressBar = $HUD/XpBar
 @onready var big_timer_label: Label = $HUD/BigTimer/BigTimerMargin/BigTimerLabel
-@onready var inv_hud_label: Label = $HUD/InvHudPanel/InvHudMargin/InvHudVBox/InvHudLabel
-@onready var inv_hud_weapon_row: HBoxContainer = $HUD/InvHudPanel/InvHudMargin/InvHudVBox/InvHudWeaponRow
+@onready var debug_panel: PanelContainer = $HUD/DebugPanel
+@onready var inv_hud_weapon_row: HBoxContainer = $HUD/InvHudPanel/InvHudMargin/InvHudWeaponRow
 @onready var pause_menu: CanvasLayer = $PauseMenu
 @onready var inventory_panel: PanelContainer = $PauseMenu/InventoryPanel
 @onready var inventory_body: Label = $PauseMenu/InventoryPanel/InvMargin/InvVBox/InvBody
@@ -67,7 +69,6 @@ var _crystal_merge_timer := 0.0
 func _process(delta: float) -> void:
 	_elapsed_seconds += delta
 	big_timer_label.text = _format_clock(_elapsed_seconds)
-	_refresh_inv_hud()
 
 	# +50% baseline spawn rate (interval 2.0 -> 1.33) and a steeper ramp so density
 	# climbs noticeably as the run goes on. Floor lowered to 0.30s for late-game swarm.
@@ -111,9 +112,20 @@ func _gems_needed_for_next_level() -> int:
 
 
 func _update_crystal_hud() -> void:
-	var need := _gems_needed_for_next_level()
-	xp_bar.max_value = float(need)
-	xp_bar.value = float(_crystals)
+	# XP bar removed from HUD. Progress is now shown only via level/kill text
+	# in the top-left inventory panel.
+	pass
+
+
+func _input(event: InputEvent) -> void:
+	# Backtick (`) toggles the debug overlay during play.
+	if event is InputEventKey and event.pressed and not event.echo:
+		if (event as InputEventKey).keycode == KEY_QUOTELEFT:
+			debug_panel.visible = not debug_panel.visible
+
+
+func _on_debug_xp_pressed() -> void:
+	_on_crystal_collected(5)
 
 
 ## Public: weapons use this to acquire targets without each one re-implementing the loop.
@@ -241,7 +253,7 @@ func _run_upgrade_screen() -> void:
 	if screen.has_method(&"set_level"):
 		screen.set_level(_player_level)
 	if screen.has_method(&"set_choices"):
-		screen.set_choices(_upgrade_catalog.get_choices(_owned_upgrades))
+		screen.set_choices(_upgrade_catalog.get_choices(_inventory, _passive_ranks))
 	add_child(screen)
 	await screen.acknowledged
 	if is_instance_valid(screen) and screen.has_method(&"get_selected_upgrade_id"):
@@ -252,29 +264,44 @@ func _run_upgrade_screen() -> void:
 func _apply_upgrade(choice_id: String) -> void:
 	if choice_id.is_empty():
 		return
-	_owned_upgrades[choice_id] = int(_owned_upgrades.get(choice_id, 0)) + 1
+	# Only passive choices carry a per-id rank counter; weapon picks are tracked
+	# inside the inventory itself.
+	if choice_id.begins_with("passive:"):
+		var pid := choice_id.substr("passive:".length())
+		_passive_ranks[pid] = int(_passive_ranks.get(pid, 0)) + 1
 	_upgrade_catalog.apply_choice(choice_id, self, player)
 	_refresh_inv_hud_icons()
 
 
-## Stat-bonus shims: catalog still says "+6 damage" etc; for now those all route to
-## the Magic Wand (the only weapon in this commit). Once the upgrade screen is
-## rewritten in step 3b these will become per-weapon level-ups instead.
-func apply_weapon_damage_bonus(amount: int) -> void:
-	var w := _inventory.get_weapon("magic_wand")
+## Catalog calls this for "new_weapon:<id>" picks.
+func grant_weapon(weapon_id: String) -> void:
+	if _inventory.has_weapon(weapon_id):
+		return
+	var w := WeaponRegistry.create(weapon_id)
 	if w != null:
+		_inventory.add_weapon(w)
+
+
+## Catalog calls this for "level_weapon:<id>" picks.
+func level_up_weapon(weapon_id: String) -> void:
+	var w := _inventory.get_weapon(weapon_id)
+	if w != null:
+		w.level_up()
+
+
+## Passive-stat bonuses apply to every owned weapon at once.
+func apply_global_damage_bonus(amount: int) -> void:
+	for w in _inventory.weapons:
 		w.dmg_bonus += amount
 
 
-func apply_attack_range_bonus(amount: float) -> void:
-	var w := _inventory.get_weapon("magic_wand")
-	if w != null:
+func apply_global_range_bonus(amount: float) -> void:
+	for w in _inventory.weapons:
 		w.range_bonus += amount
 
 
-func apply_weapon_cooldown_bonus(delta_amount: float) -> void:
-	var w := _inventory.get_weapon("magic_wand")
-	if w != null:
+func apply_global_cooldown_bonus(delta_amount: float) -> void:
+	for w in _inventory.weapons:
 		w.cd_bonus += delta_amount
 
 
@@ -348,35 +375,31 @@ func _build_inventory_text(full: bool) -> String:
 		lines.append("Stats")
 		lines.append("  Move speed: %.0f" % move_spd)
 	lines.append("")
-	lines.append("Upgrades")
-	if _owned_upgrades.is_empty():
+	lines.append("Passives")
+	if _passive_ranks.is_empty():
 		lines.append("  (none yet)")
 	else:
-		for id in _owned_upgrades.keys():
-			var rank := int(_owned_upgrades[id])
+		for id in _passive_ranks.keys():
+			var rank := int(_passive_ranks[id])
 			var title: String = id
-			if UpgradeCatalog.DEFINITIONS.has(id):
-				title = str(UpgradeCatalog.DEFINITIONS[id]["title"])
+			if UpgradeCatalog.PASSIVES.has(id):
+				title = str(UpgradeCatalog.PASSIVES[id]["title"])
 			lines.append("  %s  x%d" % [title, rank])
 	return "\n".join(lines)
 
 
-func _refresh_inv_hud() -> void:
-	inv_hud_label.text = _build_inventory_text(false)
-
-
 func _refresh_inventory_panel() -> void:
 	inventory_body.text = _build_inventory_text(true)
-	_populate_weapon_icon_row(pause_inv_weapon_row, PAUSE_WEAPON_ICON_SIZE)
+	_populate_weapon_icon_row(pause_inv_weapon_row, PAUSE_WEAPON_ICON_SIZE, false)
 
 
 ## Rebuild the live HUD weapon icon strip. Called whenever inventory changes
 ## (gain/level a weapon). Cheap: few children, swapped at most every level-up.
 func _refresh_inv_hud_icons() -> void:
-	_populate_weapon_icon_row(inv_hud_weapon_row, WEAPON_ICON_SIZE)
+	_populate_weapon_icon_row(inv_hud_weapon_row, WEAPON_ICON_SIZE, true)
 
 
-func _populate_weapon_icon_row(row: HBoxContainer, icon_size: Vector2) -> void:
+func _populate_weapon_icon_row(row: HBoxContainer, icon_size: Vector2, with_dots: bool) -> void:
 	if row == null:
 		return
 	for child in row.get_children():
@@ -385,13 +408,33 @@ func _populate_weapon_icon_row(row: HBoxContainer, icon_size: Vector2) -> void:
 		var tex := Weapon.load_icon(w.icon_path)
 		if tex == null:
 			continue
+		var slot := VBoxContainer.new()
+		slot.alignment = BoxContainer.ALIGNMENT_CENTER
+		slot.add_theme_constant_override(&"separation", 4)
+
 		var rect := TextureRect.new()
 		rect.texture = tex
 		rect.custom_minimum_size = icon_size
 		rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		rect.tooltip_text = "%s  Lv %d" % [w.display_name, w.level]
-		row.add_child(rect)
+		slot.add_child(rect)
+
+		if with_dots:
+			slot.add_child(_build_level_dots(w.level, Weapon.MAX_LEVEL))
+		row.add_child(slot)
+
+
+func _build_level_dots(current: int, max_lvl: int) -> HBoxContainer:
+	var box := HBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override(&"separation", 3)
+	for i in max_lvl:
+		var dot := ColorRect.new()
+		dot.custom_minimum_size = LEVEL_DOT_SIZE
+		dot.color = LEVEL_DOT_FILLED if i < current else LEVEL_DOT_EMPTY
+		box.add_child(dot)
+	return box
 
 
 func _on_player_health_changed(_new_health: int, _max_health: int) -> void:

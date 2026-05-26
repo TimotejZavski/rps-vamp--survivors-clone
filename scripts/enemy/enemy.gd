@@ -20,9 +20,16 @@ const _BAT_TARGET_HEIGHT_UNITS := 14.0
 
 @onready var _sprite: AnimatedSprite2D = $BatSprite
 
+## Brief whitewash on the sprite when damaged. Real luminance-shift (not just
+## modulate), so even already-bright pixels go full white for the flash.
+const HIT_FLASH_DURATION := 0.12
+const _HIT_SHADER_CODE := "shader_type canvas_item;\nuniform float flash : hint_range(0.0, 1.0) = 0.0;\nvoid fragment() {\n\tvec4 c = texture(TEXTURE, UV);\n\tc.rgb = mix(c.rgb, vec3(1.0), flash);\n\tCOLOR = c;\n}\n"
+static var _hit_shader: Shader
+
 var _health: int
 var _dying := false
 var _death_spawn_position: Vector2
+var _hit_flash_t: float = 0.0
 
 
 func _ready() -> void:
@@ -36,12 +43,31 @@ func _ready() -> void:
 			_sprite.scale = Vector2(_BAT_TARGET_HEIGHT_UNITS / h, _BAT_TARGET_HEIGHT_UNITS / h)
 	_sprite.play(&"fly")
 	_sprite.animation_finished.connect(_on_sprite_animation_finished)
+	_install_hit_material()
+
+
+func _install_hit_material() -> void:
+	if _hit_shader == null:
+		_hit_shader = Shader.new()
+		_hit_shader.code = _HIT_SHADER_CODE
+	var mat := ShaderMaterial.new()
+	mat.shader = _hit_shader
+	mat.set_shader_parameter(&"flash", 0.0)
+	_sprite.material = mat
+
+
+func _set_flash(amount: float) -> void:
+	var mat: ShaderMaterial = _sprite.material as ShaderMaterial
+	if mat != null:
+		mat.set_shader_parameter(&"flash", clampf(amount, 0.0, 1.0))
 
 
 func take_damage(amount: int) -> void:
 	if amount <= 0 or _health <= 0 or _dying:
 		return
 	_health -= amount
+	_hit_flash_t = HIT_FLASH_DURATION
+	_set_flash(1.0)
 	if _health <= 0:
 		_begin_death()
 
@@ -61,6 +87,12 @@ func _on_sprite_animation_finished() -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	if _hit_flash_t > 0.0:
+		_hit_flash_t -= _delta
+		_set_flash(_hit_flash_t / HIT_FLASH_DURATION)
+		if _hit_flash_t <= 0.0:
+			_set_flash(0.0)
+
 	if _dying:
 		move_and_slide()
 		return
