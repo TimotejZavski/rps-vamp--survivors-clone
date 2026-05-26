@@ -30,7 +30,7 @@ const ENEMY_TYPES := {
 		"walk_prefix": "fly", "death_prefix": "death",
 		"target_height": 14.0,
 		"walk_dur": 0.56, "death_dur": 0.16,
-		"hp_base": 32, "speed_base": 58.0,
+		"hp_base": 32, "speed_base": 52.0,
 		"hp_scale_cap": 0.3,
 		"faces_right": true,
 		"coin_chance": 0.18, "coin_value": 1,
@@ -40,7 +40,7 @@ const ENEMY_TYPES := {
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 20.0,
 		"walk_dur": 0.40, "death_dur": 0.09,
-		"hp_base": 58, "speed_base": 50.0,
+		"hp_base": 58, "speed_base": 45.0,
 		"hp_scale_cap": 2.5,
 		"coin_chance": 0.22, "coin_value": 1,
 	},
@@ -49,7 +49,7 @@ const ENEMY_TYPES := {
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 22.0,
 		"walk_dur": 0.44, "death_dur": 0.10,
-		"hp_base": 90, "speed_base": 42.0,
+		"hp_base": 90, "speed_base": 38.0,
 		"hp_scale_cap": 3.5,
 		"coin_chance": 0.30, "coin_value": 2,
 	},
@@ -58,7 +58,7 @@ const ENEMY_TYPES := {
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 22.0,
 		"walk_dur": 0.44, "death_dur": 0.10,
-		"hp_base": 105, "speed_base": 40.0,
+		"hp_base": 105, "speed_base": 36.0,
 		"hp_scale_cap": 4.0,
 		"coin_chance": 0.35, "coin_value": 2,
 	},
@@ -67,7 +67,7 @@ const ENEMY_TYPES := {
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 44.0,
 		"walk_dur": 0.36, "death_dur": 0.10,
-		"hp_base": 900, "speed_base": 46.0,
+		"hp_base": 900, "speed_base": 42.0,
 		"hp_scale_cap": 0.0,
 		"cullable": false,
 		"can_be_elite": false,
@@ -88,7 +88,7 @@ const ENEMY_TYPES := {
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 44.0,
 		"walk_dur": 0.36, "death_dur": 0.08,
-		"hp_base": 75, "speed_base": 62.0,
+		"hp_base": 75, "speed_base": 56.0,
 		"hp_scale_cap": 3.0,
 		"coin_chance": 0.28, "coin_value": 2,
 	},
@@ -97,7 +97,7 @@ const ENEMY_TYPES := {
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 52.0,
 		"walk_dur": 0.48, "death_dur": 0.10,
-		"hp_base": 140, "speed_base": 36.0,
+		"hp_base": 140, "speed_base": 32.0,
 		"hp_scale_cap": 4.0,
 		"coin_chance": 0.35, "coin_value": 3,
 	},
@@ -184,9 +184,9 @@ func _process(delta: float) -> void:
 	_elapsed_seconds += delta
 	big_timer_label.text = _format_clock(_elapsed_seconds)
 
-	# +50% baseline spawn rate (interval 2.0 -> 1.33) and a steeper ramp so density
-	# climbs noticeably as the run goes on. Floor lowered to 0.30s for late-game swarm.
-	var spawn_interval := maxf(0.30, 1.33 - _elapsed_seconds * 0.05)
+	# Keep the early game calmer, then ramp pressure gradually without ever
+	# hard-stopping enemy spawns during flower events.
+	var spawn_interval := maxf(1.05, 2.35 - _elapsed_seconds * 0.018)
 	_spawn_timer -= delta
 	if _spawn_timer <= 0.0:
 		_spawn_timer = spawn_interval
@@ -1093,12 +1093,11 @@ func _pick_normal_enemy_type() -> String:
 func _spawn_enemy() -> void:
 	_spawn_one_enemy(_pick_normal_enemy_type(), _random_spawn_on_arena_edge())
 	var t := _elapsed_seconds
-	# Extra spawns kick in earlier (30s) and ramp higher (up to ~65% chance) for
-	# a thicker mid/late game.
-	if t > 30.0 and randf() < clampf((t - 30.0) / 150.0, 0.0, 0.65):
+	# Extra spawns stay off until the run has settled in.
+	if t > 90.0 and randf() < clampf((t - 90.0) / 300.0, 0.0, 0.20):
 		_spawn_one_enemy(_pick_normal_enemy_type(), _random_spawn_on_arena_edge())
-	# Second extra spawn past 90s for true swarm pressure.
-	if t > 90.0 and randf() < clampf((t - 90.0) / 240.0, 0.0, 0.5):
+	# Second extra spawn comes much later and stays rare.
+	if t > 180.0 and randf() < clampf((t - 180.0) / 360.0, 0.0, 0.12):
 		_spawn_one_enemy(_pick_normal_enemy_type(), _random_spawn_on_arena_edge())
 	# Rare big-bat pair past 1:00 - acts as the run's recurring mini-boss
 	# rather than a single 3-min event.
