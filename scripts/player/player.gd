@@ -14,6 +14,13 @@ signal died
 @export var contact_periodic_damage_pushing_per_enemy := 8
 @export var overlap_move_speed_mult := 0.52
 
+## Flat damage reduction applied to every take_damage call (min 1 still applied
+## so you can't become invincible). Granted by the Armor passive.
+var armor: int = 0
+## HP regenerated per second, accumulated into integer heals to avoid drip noise.
+var recovery_per_sec: float = 0.0
+var _regen_accum: float = 0.0
+
 @onready var hurtbox: Area2D = $Hurtbox
 @onready var _body_visual: Polygon2D = $Body
 @onready var _hero: AnimatedSprite2D = $HeroSprite
@@ -60,10 +67,19 @@ func play_weapon_attack(range_units: float, aim_direction: Vector2) -> void:
 func take_damage(amount: int) -> void:
 	if current_health <= 0 or amount <= 0:
 		return
-	current_health = maxi(0, current_health - amount)
+	var mitigated: int = maxi(1, amount - armor)
+	current_health = maxi(0, current_health - mitigated)
 	health_changed.emit(current_health, max_health)
 	if current_health == 0:
 		died.emit()
+
+
+func apply_armor_bonus(amount: int) -> void:
+	armor = maxi(0, armor + amount)
+
+
+func apply_recovery_bonus(amount: float) -> void:
+	recovery_per_sec = maxf(0.0, recovery_per_sec + amount)
 
 
 func heal(amount: int) -> void:
@@ -105,7 +121,18 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_apply_contact_damage(delta)
+	_apply_regen(delta)
 	_update_hero_visual()
+
+
+func _apply_regen(delta: float) -> void:
+	if recovery_per_sec <= 0.0 or current_health <= 0 or current_health >= max_health:
+		return
+	_regen_accum += recovery_per_sec * delta
+	if _regen_accum >= 1.0:
+		var ticks: int = int(floor(_regen_accum))
+		_regen_accum -= float(ticks)
+		heal(ticks)
 
 
 func _setup_character_visual() -> void:
