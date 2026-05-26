@@ -47,6 +47,8 @@ script = ExtResource("3_forest")
 
 [node name="Enemies" type="Node2D" parent="."]
 
+[node name="Projectiles" type="Node2D" parent="."]
+
 [node name="Pickups" type="Node2D" parent="."]
 
 [node name="HUD" type="CanvasLayer" parent="."]
@@ -76,7 +78,13 @@ theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
-[node name="InvHudLabel" type="Label" parent="HUD/InvHudPanel/InvHudMargin"]
+[node name="InvHudVBox" type="VBoxContainer" parent="HUD/InvHudPanel/InvHudMargin"]
+theme_override_constants/separation = 6
+
+[node name="InvHudWeaponRow" type="HBoxContainer" parent="HUD/InvHudPanel/InvHudMargin/InvHudVBox"]
+theme_override_constants/separation = 4
+
+[node name="InvHudLabel" type="Label" parent="HUD/InvHudPanel/InvHudMargin/InvHudVBox"]
 text = "(set in code)"
 theme_override_font_sizes/font_size = 16
 
@@ -187,6 +195,10 @@ layout_mode = 2
 text = "Inventory"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 32
+
+[node name="InvPauseWeaponRow" type="HBoxContainer" parent="PauseMenu/InventoryPanel/InvMargin/InvVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="InvBody" type="Label" parent="PauseMenu/InventoryPanel/InvMargin/InvVBox"]
 layout_mode = 2

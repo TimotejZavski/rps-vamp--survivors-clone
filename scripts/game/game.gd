@@ -13,6 +13,10 @@ const ENEMY_SCENE := preload("res://scenes/game/Enemy.tscn")
 const CRYSTAL_SCENE := preload("res://scenes/game/Crystal.tscn")
 const UPGRADE_SCREEN_SCENE := preload("res://scenes/ui/UpgradeScreen.tscn")
 const UPGRADE_CATALOG := preload("res://scripts/game/upgrade_catalog.gd")
+const WEAPON_REGISTRY := preload("res://scripts/weapons/weapon_registry.gd")
+const WEAPON_INVENTORY := preload("res://scripts/weapons/weapon_inventory.gd")
+const WEAPON_ICON_SIZE := Vector2(36, 36)
+const PAUSE_WEAPON_ICON_SIZE := Vector2(64, 64)
 
 const CRYSTAL_DROP_CHANCE := 0.97
 const BASE_CRYSTALS_PER_LEVEL := 5
@@ -32,23 +36,23 @@ const ENEMY_SEP_CELL := 22.0
 ## Fraction of penetration we resolve per frame. Lower = softer, less jitter under stacking.
 const ENEMY_SEP_PUSH := 0.5
 
-var _attack_range := 88.0
-var _melee_damage := 36
-var _weapon_cooldown := 1.15
-var _weapon_timer := 0.0
+var _inventory: WeaponInventory = WEAPON_INVENTORY.new()
 var _upgrade_catalog := UPGRADE_CATALOG.new()
 var _owned_upgrades: Dictionary = {}
 
 @onready var player: CharacterBody2D = $Player
 @onready var enemies: Node2D = $Enemies
+@onready var projectiles: Node2D = $Projectiles
 @onready var pickups: Node2D = $Pickups
 @onready var player_camera: Camera2D = $Player/Camera2D
 @onready var xp_bar: ProgressBar = $HUD/XpBar
 @onready var big_timer_label: Label = $HUD/BigTimer/BigTimerMargin/BigTimerLabel
-@onready var inv_hud_label: Label = $HUD/InvHudPanel/InvHudMargin/InvHudLabel
+@onready var inv_hud_label: Label = $HUD/InvHudPanel/InvHudMargin/InvHudVBox/InvHudLabel
+@onready var inv_hud_weapon_row: HBoxContainer = $HUD/InvHudPanel/InvHudMargin/InvHudVBox/InvHudWeaponRow
 @onready var pause_menu: CanvasLayer = $PauseMenu
 @onready var inventory_panel: PanelContainer = $PauseMenu/InventoryPanel
 @onready var inventory_body: Label = $PauseMenu/InventoryPanel/InvMargin/InvVBox/InvBody
+@onready var pause_inv_weapon_row: HBoxContainer = $PauseMenu/InventoryPanel/InvMargin/InvVBox/InvPauseWeaponRow
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
 
 var _elapsed_seconds := 0.0
@@ -73,10 +77,7 @@ func _process(delta: float) -> void:
 		_spawn_timer = spawn_interval
 		_spawn_enemy()
 
-	_weapon_timer -= delta
-	if _weapon_timer <= 0.0:
-		_weapon_timer = _weapon_cooldown
-		_perform_weapon_attack()
+	_inventory.process(delta, self, player)
 
 	_cull_distant_enemies()
 	_crystal_merge_timer -= delta
@@ -91,10 +92,8 @@ func _ready() -> void:
 	if bgm_stream is AudioStreamOggVorbis:
 		(bgm_stream as AudioStreamOggVorbis).loop = true
 	background_music.play()
-	_melee_damage = RunConfig.melee_damage
-	_attack_range = RunConfig.attack_range
-	_weapon_cooldown = RunConfig.weapon_cooldown
-	_weapon_timer = _weapon_cooldown * 0.25
+	_grant_starting_weapon()
+	_refresh_inv_hud_icons()
 	pause_menu.visible = false
 	player_camera.make_current()
 	if player.has_signal("health_changed"):
@@ -117,15 +116,17 @@ func _update_crystal_hud() -> void:
 	xp_bar.value = float(_crystals)
 
 
-func _find_closest_enemy_in_attack_range() -> Node2D:
+## Public: weapons use this to acquire targets without each one re-implementing the loop.
+func find_closest_enemy(from: Vector2, max_range: float) -> Node2D:
 	var best: Node2D = null
 	var best_d2 := INF
-	var ppos := player.global_position
-	var r2 := _attack_range * _attack_range
+	var r2 := max_range * max_range
 	for node in enemies.get_children():
-		if not node.has_method("take_damage"):
+		if not node.has_method(&"take_damage"):
 			continue
-		var d2 := ppos.distance_squared_to(node.global_position)
+		if "collision_layer" in node and int(node.get("collision_layer")) == 0:
+			continue  # dying corpse
+		var d2 := from.distance_squared_to(node.global_position)
 		if d2 > r2:
 			continue
 		if d2 < best_d2:
@@ -134,17 +135,13 @@ func _find_closest_enemy_in_attack_range() -> Node2D:
 	return best
 
 
-func _perform_weapon_attack() -> void:
-	var target := _find_closest_enemy_in_attack_range()
-	var aim := Vector2.RIGHT
-	if target != null:
-		aim = (target.global_position - player.global_position).normalized()
-	elif player.has_method(&"get_weapon_aim_direction"):
-		aim = player.get_weapon_aim_direction()
-	if player.has_method(&"play_weapon_attack"):
-		player.play_weapon_attack(_attack_range, aim)
-	if target != null:
-		target.take_damage(_melee_damage)
+func _grant_starting_weapon() -> void:
+	var weapon_id: String = RunConfig.starting_weapon_id
+	if weapon_id.is_empty():
+		weapon_id = "magic_wand"
+	var w := WeaponRegistry.create(weapon_id)
+	if w != null:
+		_inventory.add_weapon(w)
 
 
 func _on_enemy_died(spawn_position: Vector2) -> void:
@@ -257,28 +254,28 @@ func _apply_upgrade(choice_id: String) -> void:
 		return
 	_owned_upgrades[choice_id] = int(_owned_upgrades.get(choice_id, 0)) + 1
 	_upgrade_catalog.apply_choice(choice_id, self, player)
-	_refresh_weapon_hud()
+	_refresh_inv_hud_icons()
 
 
-func _refresh_weapon_hud() -> void:
-	# Old separate weapon label is gone; the inventory HUD covers it now.
-	pass
-
-
+## Stat-bonus shims: catalog still says "+6 damage" etc; for now those all route to
+## the Magic Wand (the only weapon in this commit). Once the upgrade screen is
+## rewritten in step 3b these will become per-weapon level-ups instead.
 func apply_weapon_damage_bonus(amount: int) -> void:
-	_melee_damage += amount
-	_refresh_weapon_hud()
+	var w := _inventory.get_weapon("magic_wand")
+	if w != null:
+		w.dmg_bonus += amount
 
 
 func apply_attack_range_bonus(amount: float) -> void:
-	_attack_range += amount
-	_refresh_weapon_hud()
+	var w := _inventory.get_weapon("magic_wand")
+	if w != null:
+		w.range_bonus += amount
 
 
 func apply_weapon_cooldown_bonus(delta_amount: float) -> void:
-	_weapon_cooldown = maxf(0.30, _weapon_cooldown + delta_amount)
-	_weapon_timer = minf(_weapon_timer, _weapon_cooldown)
-	_refresh_weapon_hud()
+	var w := _inventory.get_weapon("magic_wand")
+	if w != null:
+		w.cd_bonus += delta_amount
 
 
 func _finalize_run_summary() -> void:
@@ -340,10 +337,12 @@ func _build_inventory_text(full: bool) -> String:
 	lines.append("HP: %d / %d" % [cur_hp, max_hp])
 	lines.append("Kills: %d" % _kill_count)
 	lines.append("")
-	lines.append("Weapons")
-	lines.append("  %s  (dmg %d, range %.0f, cd %.2fs)" % [
-		RunConfig.weapon_placeholder_name, _melee_damage, _attack_range, _weapon_cooldown
-	])
+	lines.append("Weapons (%d/%d)" % [_inventory.weapons.size(), WeaponInventory.MAX_SLOTS])
+	if _inventory.weapons.is_empty():
+		lines.append("  (none)")
+	else:
+		for w in _inventory.weapons:
+			lines.append("  %s  Lv %d  ·  %s" % [w.display_name, w.level, w.describe_stats()])
 	if full:
 		lines.append("")
 		lines.append("Stats")
@@ -368,6 +367,31 @@ func _refresh_inv_hud() -> void:
 
 func _refresh_inventory_panel() -> void:
 	inventory_body.text = _build_inventory_text(true)
+	_populate_weapon_icon_row(pause_inv_weapon_row, PAUSE_WEAPON_ICON_SIZE)
+
+
+## Rebuild the live HUD weapon icon strip. Called whenever inventory changes
+## (gain/level a weapon). Cheap: few children, swapped at most every level-up.
+func _refresh_inv_hud_icons() -> void:
+	_populate_weapon_icon_row(inv_hud_weapon_row, WEAPON_ICON_SIZE)
+
+
+func _populate_weapon_icon_row(row: HBoxContainer, icon_size: Vector2) -> void:
+	if row == null:
+		return
+	for child in row.get_children():
+		child.queue_free()
+	for w in _inventory.weapons:
+		var tex := Weapon.load_icon(w.icon_path)
+		if tex == null:
+			continue
+		var rect := TextureRect.new()
+		rect.texture = tex
+		rect.custom_minimum_size = icon_size
+		rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		rect.tooltip_text = "%s  Lv %d" % [w.display_name, w.level]
+		row.add_child(rect)
 
 
 func _on_player_health_changed(_new_health: int, _max_health: int) -> void:
@@ -467,8 +491,11 @@ func _format_clock(seconds: float) -> String:
 
 func _apply_difficulty_to_enemy(enemy: CharacterBody2D) -> void:
 	var t := _elapsed_seconds
-	var hp_mult := 1.0 + mini(t / 95.0, 3.25)
-	var spd_mult := 1.0 + mini(t / 140.0, 0.55)
+	# Steeper HP ramp than before so the wand stops one-shotting around the
+	# 30-60s mark and the player has to actually invest in upgrades. Cap raised
+	# from 4.25x to 6.0x for a meaner late game.
+	var hp_mult := 1.0 + minf(t / 55.0, 5.0)
+	var spd_mult := 1.0 + minf(t / 140.0, 0.55)
 	enemy.max_health = int(round(32.0 * hp_mult))
 	enemy.move_speed = 58.0 * spd_mult
 

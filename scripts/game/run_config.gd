@@ -4,8 +4,11 @@ extends Node
 
 var character_id: String = "wizard"
 var display_name: String = "Imelda Belpaese"
-var weapon_placeholder_name: String = "Staff Bolt"
+var weapon_placeholder_name: String = "Magic Wand"
+var starting_weapon_id: String = "magic_wand"
 
+## Legacy stat fields. Now unused at runtime (weapons own their own stats),
+## kept so older save data / UI strings don't crash if they read them.
 var weapon_cooldown: float = 1.15
 var attack_range: float = 88.0
 var melee_damage: int = 36
@@ -18,24 +21,18 @@ var last_run_kills: int = 0
 const PRESETS := {
 	"wizard": {
 		"display_name": "Imelda Belpaese",
-		"weapon_placeholder_name": "Staff Bolt",
-		"weapon_cooldown": 1.2,
-		"attack_range": 88.0,
-		"melee_damage": 36,
+		"weapon_placeholder_name": "Magic Wand",
+		"starting_weapon_id": "magic_wand",
 	},
 	"knight": {
 		"display_name": "Krochi Freetto",
-		"weapon_placeholder_name": "Sword Slash",
-		"weapon_cooldown": 0.85,
-		"attack_range": 64.0,
-		"melee_damage": 28,
+		"weapon_placeholder_name": "Magic Wand",
+		"starting_weapon_id": "magic_wand",
 	},
 	"cleric": {
 		"display_name": "Suor Clerici",
-		"weapon_placeholder_name": "Holy Aura",
-		"weapon_cooldown": 1.5,
-		"attack_range": 108.0,
-		"melee_damage": 22,
+		"weapon_placeholder_name": "Magic Wand",
+		"starting_weapon_id": "magic_wand",
 	},
 }
 
@@ -48,6 +45,4 @@ func apply_preset(id: String) -> void:
 	var p: Dictionary = PRESETS[key]
 	display_name = p.display_name
 	weapon_placeholder_name = p.weapon_placeholder_name
-	weapon_cooldown = p.weapon_cooldown
-	attack_range = p.attack_range
-	melee_damage = p.melee_damage
+	starting_weapon_id = p.starting_weapon_id
