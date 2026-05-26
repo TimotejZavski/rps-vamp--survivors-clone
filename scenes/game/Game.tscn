@@ -56,8 +56,8 @@ script = ExtResource("3_forest")
 [node name="InvHudPanel" type="PanelContainer" parent="HUD"]
 offset_left = 8.0
 offset_top = 10.0
-offset_right = 520.0
-offset_bottom = 122.0
+offset_right = 540.0
+offset_bottom = 198.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_timer_bg")
 
 [node name="InvHudMargin" type="MarginContainer" parent="HUD/InvHudPanel"]
@@ -66,8 +66,14 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 10
 
-[node name="InvHudWeaponRow" type="HBoxContainer" parent="HUD/InvHudPanel/InvHudMargin"]
+[node name="InvHudVBox" type="VBoxContainer" parent="HUD/InvHudPanel/InvHudMargin"]
+theme_override_constants/separation = 8
+
+[node name="InvHudWeaponRow" type="HBoxContainer" parent="HUD/InvHudPanel/InvHudMargin/InvHudVBox"]
 theme_override_constants/separation = 12
+
+[node name="InvHudPassiveRow" type="HBoxContainer" parent="HUD/InvHudPanel/InvHudMargin/InvHudVBox"]
+theme_override_constants/separation = 10
 
 [node name="BigTimer" type="PanelContainer" parent="HUD"]
 anchors_preset = 5
@@ -180,10 +186,10 @@ anchor_left = 1.0
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
-offset_left = -440.0
-offset_top = -200.0
+offset_left = -460.0
+offset_top = -310.0
 offset_right = -20.0
-offset_bottom = 200.0
+offset_bottom = 310.0
 grow_horizontal = 0
 grow_vertical = 2
 
@@ -211,6 +217,16 @@ layout_mode = 2
 text = "(set in code)"
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 22
+
+[node name="InvRecipesTitle" type="Label" parent="PauseMenu/InventoryPanel/InvMargin/InvVBox"]
+layout_mode = 2
+text = "Evolution Recipes"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+
+[node name="InvRecipesBox" type="VBoxContainer" parent="PauseMenu/InventoryPanel/InvMargin/InvVBox"]
+layout_mode = 2
+theme_override_constants/separation = 4
 
 [connection signal="pressed" from="HUD/DebugPanel/DebugMargin/DebugXpButton" to="." method="_on_debug_xp_pressed"]
 [connection signal="pressed" from="PauseMenu/Center/Panel/Margin/VBox/ResumeButton" to="." method="_on_pause_resume_pressed"]

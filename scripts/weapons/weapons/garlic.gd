@@ -5,6 +5,12 @@ const ICON := "res://assets/icons/Sprite-Garlic.png"
 const AURA_SCRIPT := preload("res://scripts/weapons/garlic_aura.gd")
 const BASE_VISUAL_RADIUS := 64.0
 
+## Visual + behavior knobs so Soul Eater can reuse this weapon as a red,
+## larger, life-stealing aura.
+var aura_tint: Color = Color(0.18, 0.38, 0.95)  # base blue
+var aura_radius_mult: float = 1.0
+var lifesteal_fraction: float = 0.0
+
 var _aura: Node2D = null
 
 
@@ -33,9 +39,11 @@ func describe_stats() -> String:
 
 func _fire(game: Node, player: Node2D) -> void:
 	_ensure_aura(player)
-	var r := get_range()
+	var r := get_range() * aura_radius_mult
 	var r2 := r * r
 	var ppos := player.global_position
+	var dmg: int = get_damage()
+	var hits: int = 0
 	for e in game.enemies.get_children():
 		if not e.has_method(&"take_damage"):
 			continue
@@ -43,11 +51,16 @@ func _fire(game: Node, player: Node2D) -> void:
 			continue
 		if ppos.distance_squared_to(e.global_position) > r2:
 			continue
-		e.take_damage(get_damage())
+		e.take_damage(dmg)
+		hits += 1
+	if lifesteal_fraction > 0.0 and hits > 0 and player.has_method(&"heal"):
+		var amt: int = int(round(float(dmg) * lifesteal_fraction * float(hits)))
+		if amt > 0:
+			player.heal(amt)
 
 
 func _ensure_aura(player: Node2D) -> void:
-	var target_scale: float = get_range() / BASE_VISUAL_RADIUS
+	var target_scale: float = (get_range() * aura_radius_mult) / BASE_VISUAL_RADIUS
 	if is_instance_valid(_aura):
 		_aura.set("range_scale", target_scale)
 		return
@@ -57,5 +70,6 @@ func _ensure_aura(player: Node2D) -> void:
 	n.z_index = -8
 	n.set("base_radius", BASE_VISUAL_RADIUS)
 	n.set("range_scale", target_scale)
+	n.set("tint", aura_tint)
 	player.add_child(n)
 	_aura = n

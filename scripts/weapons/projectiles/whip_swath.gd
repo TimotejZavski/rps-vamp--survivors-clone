@@ -3,6 +3,9 @@ extends Area2D
 
 var damage: int = 22
 var lifetime: float = 0.18
+## Fraction of damage healed back to the player on hit (Bloody Tear evolution).
+var lifesteal_fraction: float = 0.0
+var player_ref: Node = null
 
 var _hit_ids: Dictionary = {}
 var _t: float = 0.0
@@ -39,3 +42,7 @@ func _on_body_entered(body: Node) -> void:
 		return
 	_hit_ids[iid] = true
 	body.take_damage(damage)
+	if lifesteal_fraction > 0.0 and player_ref != null and is_instance_valid(player_ref) and player_ref.has_method(&"heal"):
+		var amt: int = int(round(float(damage) * lifesteal_fraction))
+		if amt > 0:
+			player_ref.heal(amt)

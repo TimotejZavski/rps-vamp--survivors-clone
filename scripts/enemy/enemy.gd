@@ -1,4 +1,7 @@
 extends CharacterBody2D
+## Generic enemy. The spawner configures the visual + stat exports before
+## the node enters the tree; this script handles walk/chase, contact, hit
+## flash, and death animation for every enemy variant.
 
 signal died(spawn_position: Vector2)
 
@@ -7,24 +10,39 @@ var target: Node2D
 @export var move_speed := 58.0
 @export var max_health := 32
 
-## Matches Player.tscn rect half-extent + Enemy.tscn rect half-extent (7 + 7).
+## Where to load the per-frame PNGs from. Each enemy folder contains
+## "<walk_frame_prefix>_NN.png" and "<death_frame_prefix>_NN.png" series.
+@export var frames_root: String = "res://assets/enemies/pipeestrello_3/"
+@export var walk_frame_prefix: String = "fly"
+@export var death_frame_prefix: String = "death"
+@export var target_height: float = 14.0
+@export var walk_frame_duration: float = 0.28
+@export var death_frame_duration: float = 0.16
+## Stationary enemies (e.g. flower wall) don't chase the player.
+@export var stationary: bool = false
+## When false, the game's far-from-player despawn pass skips this enemy
+## (used for bosses so they can't be lost by walking away).
+@export var cullable: bool = true
+## True if the source frames already face right (like the bat). For sprites
+## that face left by default (skeleton, mudmen, batboss, flowerwall) the flip
+## direction is inverted so they don't moonwalk.
+@export var sprite_default_faces_right: bool = false
+## Elite variant: gets a blue outline + the spawner doubles its HP.
+@export var is_elite: bool = false
+
+## Player and self half-extents are shared - keeps contact AABB symmetric.
 const _PLAYER_HALF := 7.0
 const _SELF_HALF := 7.0
 
-## Frames extracted from wiki GIFs (CC BY-NC-SA 3.0): fly `Animated-Pipeestrello-3.gif`, death `Animated-Pipeestrello-3_(death).gif` — https://vampire.survivors.wiki/w/Pipeestrello
-const _BAT_FRAMES_ROOT := "res://assets/enemies/pipeestrello_3/"
-const _FLY_FRAME_DURATION := 0.28
-const _DEATH_FRAME_DURATION := 0.16
-## World-space height (~27px native bat); keep near enemy footprint.
-const _BAT_TARGET_HEIGHT_UNITS := 14.0
-
-@onready var _sprite: AnimatedSprite2D = $BatSprite
-
-## Brief whitewash on the sprite when damaged. Real luminance-shift (not just
-## modulate), so even already-bright pixels go full white for the flash.
+## Brief whitewash on the sprite when damaged + optional outline (used for
+## elites). Single shader so both effects share one material per enemy.
 const HIT_FLASH_DURATION := 0.12
-const _HIT_SHADER_CODE := "shader_type canvas_item;\nuniform float flash : hint_range(0.0, 1.0) = 0.0;\nvoid fragment() {\n\tvec4 c = texture(TEXTURE, UV);\n\tc.rgb = mix(c.rgb, vec3(1.0), flash);\n\tCOLOR = c;\n}\n"
+const ELITE_OUTLINE_COLOR := Color(0.35, 0.7, 1.0, 1.0)
+const ELITE_OUTLINE_THICKNESS := 1.5
+const _HIT_SHADER_CODE := "shader_type canvas_item;\nuniform float flash : hint_range(0.0, 1.0) = 0.0;\nuniform vec4 outline_color : source_color = vec4(0.0, 0.0, 0.0, 0.0);\nuniform float outline_thickness : hint_range(0.0, 8.0) = 0.0;\nvoid fragment() {\n\tvec4 c = texture(TEXTURE, UV);\n\tif (outline_color.a > 0.001 && outline_thickness > 0.001 && c.a < 0.1) {\n\t\tvec2 px = TEXTURE_PIXEL_SIZE * outline_thickness;\n\t\tfloat n = texture(TEXTURE, UV + vec2(px.x, 0.0)).a + texture(TEXTURE, UV + vec2(-px.x, 0.0)).a + texture(TEXTURE, UV + vec2(0.0, px.y)).a + texture(TEXTURE, UV + vec2(0.0, -px.y)).a;\n\t\tif (n > 0.0) { COLOR = outline_color; return; }\n\t}\n\tc.rgb = mix(c.rgb, vec3(1.0), flash);\n\tCOLOR = c;\n}\n"
 static var _hit_shader: Shader
+
+@onready var _sprite: AnimatedSprite2D = $Sprite
 
 var _health: int
 var _dying := false
@@ -35,13 +53,13 @@ var _hit_flash_t: float = 0.0
 func _ready() -> void:
 	add_to_group("enemy")
 	_health = max_health
-	_sprite.sprite_frames = _build_bat_sprite_frames()
-	var tex: Texture2D = _sprite.sprite_frames.get_frame_texture(&"fly", 0)
+	_sprite.sprite_frames = _build_sprite_frames()
+	var tex: Texture2D = _sprite.sprite_frames.get_frame_texture(&"walk", 0)
 	if tex != null:
 		var h: float = float(tex.get_size().y)
 		if h > 0.0:
-			_sprite.scale = Vector2(_BAT_TARGET_HEIGHT_UNITS / h, _BAT_TARGET_HEIGHT_UNITS / h)
-	_sprite.play(&"fly")
+			_sprite.scale = Vector2(target_height / h, target_height / h)
+	_sprite.play(&"walk")
 	_sprite.animation_finished.connect(_on_sprite_animation_finished)
 	_install_hit_material()
 
@@ -53,6 +71,12 @@ func _install_hit_material() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = _hit_shader
 	mat.set_shader_parameter(&"flash", 0.0)
+	if is_elite:
+		mat.set_shader_parameter(&"outline_color", ELITE_OUTLINE_COLOR)
+		mat.set_shader_parameter(&"outline_thickness", ELITE_OUTLINE_THICKNESS)
+	else:
+		mat.set_shader_parameter(&"outline_color", Color(0, 0, 0, 0))
+		mat.set_shader_parameter(&"outline_thickness", 0.0)
 	_sprite.material = mat
 
 
@@ -97,7 +121,7 @@ func _physics_process(_delta: float) -> void:
 		move_and_slide()
 		return
 
-	if not is_instance_valid(target):
+	if stationary or not is_instance_valid(target):
 		velocity = Vector2.ZERO
 		move_and_slide()
 		return
@@ -119,7 +143,10 @@ func _physics_process(_delta: float) -> void:
 	move_and_slide()
 
 	if absf(velocity.x) > 2.0:
-		_sprite.flip_h = velocity.x < 0.0
+		var moving_left: bool = velocity.x < 0.0
+		# If the source sprite faces right by default we flip when moving left;
+		# if it faces left by default we flip when moving right.
+		_sprite.flip_h = moving_left if sprite_default_faces_right else not moving_left
 
 	edx = global_position.x - target.global_position.x
 	edy = global_position.y - target.global_position.y
@@ -127,31 +154,31 @@ func _physics_process(_delta: float) -> void:
 		_separate_from_target(edx, edy, min_sep_x, min_sep_y)
 
 
-func _build_bat_sprite_frames() -> SpriteFrames:
+func _build_sprite_frames() -> SpriteFrames:
 	var sf := SpriteFrames.new()
-	sf.add_animation(&"fly")
-	sf.set_animation_loop(&"fly", true)
+	sf.add_animation(&"walk")
+	sf.set_animation_loop(&"walk", true)
 	var i := 0
 	while true:
-		var path := _BAT_FRAMES_ROOT + ("fly_%02d.png" % i)
+		var path: String = frames_root + ("%s_%02d.png" % [walk_frame_prefix, i])
 		if not FileAccess.file_exists(path):
 			break
 		var img := Image.new()
 		if img.load(path) != OK:
 			break
-		sf.add_frame(&"fly", ImageTexture.create_from_image(img), _FLY_FRAME_DURATION)
+		sf.add_frame(&"walk", ImageTexture.create_from_image(img), walk_frame_duration)
 		i += 1
 	sf.add_animation(&"death")
 	sf.set_animation_loop(&"death", false)
 	i = 0
 	while true:
-		var path := _BAT_FRAMES_ROOT + ("death_%02d.png" % i)
+		var path: String = frames_root + ("%s_%02d.png" % [death_frame_prefix, i])
 		if not FileAccess.file_exists(path):
 			break
 		var img := Image.new()
 		if img.load(path) != OK:
 			break
-		sf.add_frame(&"death", ImageTexture.create_from_image(img), _DEATH_FRAME_DURATION)
+		sf.add_frame(&"death", ImageTexture.create_from_image(img), death_frame_duration)
 		i += 1
 	return sf
 

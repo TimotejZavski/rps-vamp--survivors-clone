@@ -11,6 +11,24 @@ class_name UpgradeCatalog
 
 const MAX_PASSIVE_RANK := 5
 
+## Evolution recipes: base weapon + required passive (display name in parens)
+## -> evolved weapon id. Chest opens that find a satisfied recipe pick the
+## evolution as the result.
+##   Whip      + Hollow Heart (max_health passive) -> Bloody Tear
+##   Knife     + Bracer       (speed passive)      -> Thousand Edge
+##   Axe       + Candelabrador(area passive)       -> Death Spiral
+##   Garlic    + Pummarola    (recovery passive)   -> Soul Eater
+const EVOLUTIONS := {
+	"whip":   { "passive": "max_health", "passive_name": "Hollow Heart", "evo": "bloody_tear",   "evo_name": "Bloody Tear" },
+	"knife":  { "passive": "speed",      "passive_name": "Bracer",       "evo": "thousand_edge", "evo_name": "Thousand Edge" },
+	"axe":    { "passive": "area",       "passive_name": "Candelabrador","evo": "death_spiral",  "evo_name": "Death Spiral" },
+	"garlic": { "passive": "recovery",   "passive_name": "Pummarola",    "evo": "soul_eater",    "evo_name": "Soul Eater" },
+}
+
+## Minimum weapon level required for evolution to be eligible. VS uses max
+## level (8). Lowered to 5 here so it's reachable in a normal prototype run.
+const EVOLUTION_MIN_LEVEL := 5
+
 const WEAPONS := {
 	"magic_wand": {
 		"name": "Magic Wand",
@@ -104,6 +122,10 @@ func get_choices(inventory: WeaponInventory, owned_passives: Dictionary) -> Arra
 
 	if not inventory.is_full():
 		for wid in WEAPONS.keys():
+			# Evolved weapons are only obtainable through chests, never as a
+			# raw "new weapon" pick.
+			if WeaponRegistry.is_evolution(wid):
+				continue
 			if inventory.has_weapon(wid):
 				continue
 			var w: Dictionary = WEAPONS[wid]
@@ -117,6 +139,11 @@ func get_choices(inventory: WeaponInventory, owned_passives: Dictionary) -> Arra
 			})
 
 	for w in inventory.weapons:
+		# Evolutions live in the inventory once granted but the upgrade pool
+		# shouldn't keep leveling them up via the normal screen - that role
+		# belongs to chests / future tuning.
+		if WeaponRegistry.is_evolution(w.id):
+			continue
 		if w.is_max_level():
 			continue
 		pool.append({
@@ -195,6 +222,24 @@ func apply_choice(choice_id: String, game, player) -> void:
 			game.level_up_weapon(key)
 		"passive":
 			_apply_passive(key, game, player)
+
+
+## Returns the base weapon id whose evolution is currently unlocked (player
+## owns the weapon at >= EVOLUTION_MIN_LEVEL and the paired passive at >= 1),
+## or "" if nothing is ready. Picks the first match deterministically.
+static func find_ready_evolution(inventory: WeaponInventory, owned_passives: Dictionary) -> String:
+	for base_id in EVOLUTIONS.keys():
+		var recipe: Dictionary = EVOLUTIONS[base_id]
+		var w: Weapon = inventory.get_weapon(base_id)
+		if w == null:
+			continue
+		if w.level < EVOLUTION_MIN_LEVEL:
+			continue
+		var rank: int = int(owned_passives.get(str(recipe["passive"]), 0))
+		if rank <= 0:
+			continue
+		return base_id
+	return ""
 
 
 func _apply_passive(passive_id: String, game, player) -> void:

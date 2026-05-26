@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://dchestmk001"]
+
+[ext_resource type="Script" path="res://scripts/game/chest.gd" id="1_chest"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_chest"]
+radius = 11.0
+
+[node name="Chest" type="Area2D"]
+collision_layer = 0
+collision_mask = 1
+monitoring = true
+script = ExtResource("1_chest")
+z_index = 6
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_chest")

@@ -36,6 +36,17 @@ func is_full() -> bool:
 	return weapons.size() >= MAX_SLOTS
 
 
+## Remove a weapon by id. Returns the removed weapon (or null) so callers
+## can clean up any visual nodes the weapon attached to the scene.
+func remove_weapon(weapon_id: String) -> Weapon:
+	for i in weapons.size():
+		if weapons[i].id == weapon_id:
+			var removed: Weapon = weapons[i]
+			weapons.remove_at(i)
+			return removed
+	return null
+
+
 func process(delta: float, game: Node, player: Node2D) -> void:
 	for w in weapons:
 		w.process(delta, game, player)

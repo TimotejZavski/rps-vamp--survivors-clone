@@ -8,8 +8,8 @@ extends Node2D
 @export var range_scale: float = 1.0
 @export var pulse_rate: float = 1.6
 @export var pulse_amount: float = 0.07
-
-const COLOR := Color(0.10, 0.42, 0.16)
+## Color of the aura; defaults to deep blue. Overridden to red on evolution.
+@export var tint: Color = Color(0.18, 0.38, 0.95)
 ## Each entry: relative radius (0..1) and alpha. Inner layers are denser; the
 ## outermost layer is nearly transparent so its polygon boundary disappears
 ## against the ground instead of reading as a hard ring.
@@ -39,11 +39,20 @@ func _process(delta: float) -> void:
 func _build_rings() -> void:
 	for layer in LAYERS:
 		var poly := Polygon2D.new()
-		var col := COLOR
+		var col := tint
 		col.a = float(layer["a"])
 		poly.color = col
 		poly.polygon = _ring_verts(base_radius * float(layer["r"]), 40)
 		add_child(poly)
+
+
+func set_tint(new_tint: Color) -> void:
+	tint = new_tint
+	# Rebuild rings if already in-tree.
+	for c in get_children():
+		c.queue_free()
+	if is_inside_tree():
+		_build_rings()
 
 
 func _ring_verts(radius: float, segments: int) -> PackedVector2Array:
