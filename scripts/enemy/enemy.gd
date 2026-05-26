@@ -39,8 +39,10 @@ const _SELF_HALF := 7.0
 const HIT_FLASH_DURATION := 0.12
 const ELITE_OUTLINE_COLOR := Color(0.35, 0.7, 1.0, 1.0)
 const ELITE_OUTLINE_THICKNESS := 1.5
-const _HIT_SHADER_CODE := "shader_type canvas_item;\nuniform float flash : hint_range(0.0, 1.0) = 0.0;\nuniform vec4 outline_color : source_color = vec4(0.0, 0.0, 0.0, 0.0);\nuniform float outline_thickness : hint_range(0.0, 8.0) = 0.0;\nvoid fragment() {\n\tvec4 c = texture(TEXTURE, UV);\n\tif (outline_color.a > 0.001 && outline_thickness > 0.001 && c.a < 0.1) {\n\t\tvec2 px = TEXTURE_PIXEL_SIZE * outline_thickness;\n\t\tfloat n = texture(TEXTURE, UV + vec2(px.x, 0.0)).a + texture(TEXTURE, UV + vec2(-px.x, 0.0)).a + texture(TEXTURE, UV + vec2(0.0, px.y)).a + texture(TEXTURE, UV + vec2(0.0, -px.y)).a;\n\t\tif (n > 0.0) { COLOR = outline_color; return; }\n\t}\n\tc.rgb = mix(c.rgb, vec3(1.0), flash);\n\tCOLOR = c;\n}\n"
-static var _hit_shader: Shader
+## File-based shader so the renderer compiles it at import time. Inline
+## Shader.new()+code assignment was hitting "Parameter 'version' is null"
+## warnings on AnimatedSprite2D and the flash never appeared.
+const _HIT_SHADER := preload("res://shaders/enemy_hit.gdshader")
 
 @onready var _sprite: AnimatedSprite2D = $Sprite
 
@@ -65,11 +67,8 @@ func _ready() -> void:
 
 
 func _install_hit_material() -> void:
-	if _hit_shader == null:
-		_hit_shader = Shader.new()
-		_hit_shader.code = _HIT_SHADER_CODE
 	var mat := ShaderMaterial.new()
-	mat.shader = _hit_shader
+	mat.shader = _HIT_SHADER
 	mat.set_shader_parameter(&"flash", 0.0)
 	if is_elite:
 		mat.set_shader_parameter(&"outline_color", ELITE_OUTLINE_COLOR)
@@ -161,24 +160,26 @@ func _build_sprite_frames() -> SpriteFrames:
 	var i := 0
 	while true:
 		var path: String = frames_root + ("%s_%02d.png" % [walk_frame_prefix, i])
-		if not FileAccess.file_exists(path):
+		# load() uses the imported texture (.ctex) and works in exports;
+		# Image.load() reads the raw .png and warns "this will not work on export".
+		if not ResourceLoader.exists(path):
 			break
-		var img := Image.new()
-		if img.load(path) != OK:
+		var tex: Texture2D = load(path) as Texture2D
+		if tex == null:
 			break
-		sf.add_frame(&"walk", ImageTexture.create_from_image(img), walk_frame_duration)
+		sf.add_frame(&"walk", tex, walk_frame_duration)
 		i += 1
 	sf.add_animation(&"death")
 	sf.set_animation_loop(&"death", false)
 	i = 0
 	while true:
 		var path: String = frames_root + ("%s_%02d.png" % [death_frame_prefix, i])
-		if not FileAccess.file_exists(path):
+		if not ResourceLoader.exists(path):
 			break
-		var img := Image.new()
-		if img.load(path) != OK:
+		var tex: Texture2D = load(path) as Texture2D
+		if tex == null:
 			break
-		sf.add_frame(&"death", ImageTexture.create_from_image(img), death_frame_duration)
+		sf.add_frame(&"death", tex, death_frame_duration)
 		i += 1
 	return sf
 

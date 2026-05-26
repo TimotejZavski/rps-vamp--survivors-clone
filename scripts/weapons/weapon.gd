@@ -23,11 +23,11 @@ static func load_icon(path: String) -> Texture2D:
 		return null
 	if _icon_cache.has(path):
 		return _icon_cache[path]
-	var img := Image.new()
-	if img.load(path) != OK:
+	if not ResourceLoader.exists(path):
 		return null
-	var tex := ImageTexture.create_from_image(img)
-	_icon_cache[path] = tex
+	var tex: Texture2D = load(path) as Texture2D
+	if tex != null:
+		_icon_cache[path] = tex
 	return tex
 
 

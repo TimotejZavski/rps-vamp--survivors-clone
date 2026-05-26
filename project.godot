@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 RunConfig="*res://scripts/game/run_config.gd"
 Sfx="*res://scripts/audio_manager.gd"
+MetaSave="*res://scripts/meta/meta_save.gd"
 
 [display]
 

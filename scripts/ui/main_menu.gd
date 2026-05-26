@@ -1,6 +1,7 @@
 extends Control
 
 signal start_requested
+signal meta_requested
 signal quit_requested
 
 
@@ -21,6 +22,11 @@ func _ready() -> void:
 func _on_start_button_pressed() -> void:
 	Sfx.play("select")
 	start_requested.emit()
+
+
+func _on_meta_button_pressed() -> void:
+	Sfx.play("select")
+	meta_requested.emit()
 
 
 func _on_quit_button_pressed() -> void:

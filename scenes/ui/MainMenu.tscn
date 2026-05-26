@@ -61,10 +61,16 @@ layout_mode = 2
 texture_filter = 0
 text = "Start Game"
 
+[node name="MetaButton" type="Button" parent="BottomMargin/MainColumn/ButtonRow/ButtonColumn"]
+layout_mode = 2
+texture_filter = 0
+text = "Meta Progression"
+
 [node name="QuitButton" type="Button" parent="BottomMargin/MainColumn/ButtonRow/ButtonColumn"]
 layout_mode = 2
 texture_filter = 0
 text = "Quit"
 
 [connection signal="pressed" from="BottomMargin/MainColumn/ButtonRow/ButtonColumn/StartButton" to="." method="_on_start_button_pressed"]
+[connection signal="pressed" from="BottomMargin/MainColumn/ButtonRow/ButtonColumn/MetaButton" to="." method="_on_meta_button_pressed"]
 [connection signal="pressed" from="BottomMargin/MainColumn/ButtonRow/ButtonColumn/QuitButton" to="." method="_on_quit_button_pressed"]

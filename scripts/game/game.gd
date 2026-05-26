@@ -1,6 +1,11 @@
 extends Node2D
 
 signal game_over_requested
+signal level_completed_requested
+
+## Runs are capped to 5 minutes. At RUN_TIME_CAP the spawner stops and the
+## LevelComplete screen replaces gameplay.
+const RUN_TIME_CAP := 300.0
 
 const ARENA_MIN := Vector2(-11000.0, -7000.0)
 const ARENA_MAX := Vector2(11000.0, 7000.0)
@@ -12,6 +17,10 @@ const ENEMY_DESPAWN_RADIUS := 760.0
 const ENEMY_SCENE := preload("res://scenes/game/Enemy.tscn")
 const CRYSTAL_SCENE := preload("res://scenes/game/Crystal.tscn")
 const CHEST_SCENE := preload("res://scenes/game/Chest.tscn")
+const COIN_SCENE := preload("res://scenes/game/Coin.tscn")
+
+## Bonus gold poured into the player on every chest open, on top of the roll.
+const CHEST_GOLD_BONUS := 25
 
 ## Per-type enemy config. Loaded into a generic Enemy.tscn before _ready
 ## so a single scene + script serves every variant.
@@ -20,59 +29,77 @@ const ENEMY_TYPES := {
 		"frames_root": "res://assets/enemies/pipeestrello_3/",
 		"walk_prefix": "fly", "death_prefix": "death",
 		"target_height": 14.0,
-		"walk_dur": 0.28, "death_dur": 0.16,
+		"walk_dur": 0.56, "death_dur": 0.16,
 		"hp_base": 32, "speed_base": 58.0,
-		# Bats stay almost one-shot the whole run; small scaling so they get
-		# very slightly chunkier late but never tanky.
 		"hp_scale_cap": 0.3,
-		# Bat sprite faces right by default in our frames; ground enemies face
-		# left by default (their gifs were authored facing left).
 		"faces_right": true,
+		"coin_chance": 0.18, "coin_value": 1,
 	},
 	"skeleton": {
 		"frames_root": "res://assets/enemies/skeleton/",
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 20.0,
-		"walk_dur": 0.20, "death_dur": 0.09,
+		"walk_dur": 0.40, "death_dur": 0.09,
 		"hp_base": 58, "speed_base": 50.0,
 		"hp_scale_cap": 2.5,
+		"coin_chance": 0.22, "coin_value": 1,
 	},
 	"mudman1": {
 		"frames_root": "res://assets/enemies/mudman1/",
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 22.0,
-		"walk_dur": 0.22, "death_dur": 0.10,
+		"walk_dur": 0.44, "death_dur": 0.10,
 		"hp_base": 90, "speed_base": 42.0,
 		"hp_scale_cap": 3.5,
+		"coin_chance": 0.30, "coin_value": 2,
 	},
 	"mudman2": {
 		"frames_root": "res://assets/enemies/mudman2/",
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 22.0,
-		"walk_dur": 0.22, "death_dur": 0.10,
+		"walk_dur": 0.44, "death_dur": 0.10,
 		"hp_base": 105, "speed_base": 40.0,
 		"hp_scale_cap": 4.0,
+		"coin_chance": 0.35, "coin_value": 2,
 	},
 	"batboss": {
 		"frames_root": "res://assets/enemies/batboss/",
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 44.0,
-		"walk_dur": 0.18, "death_dur": 0.10,
+		"walk_dur": 0.36, "death_dur": 0.10,
 		"hp_base": 900, "speed_base": 46.0,
-		# Boss HP is already balanced for late-game; no time scaling.
 		"hp_scale_cap": 0.0,
 		"cullable": false,
-		# Boss is already special - never roll elite on top of that.
 		"can_be_elite": false,
+		"coin_chance": 1.0, "coin_value": 50,
 	},
 	"flowerwall": {
 		"frames_root": "res://assets/enemies/flowerwall/",
 		"walk_prefix": "walk", "death_prefix": "death",
 		"target_height": 26.0,
-		"walk_dur": 0.22, "death_dur": 0.10,
+		"walk_dur": 0.44, "death_dur": 0.10,
 		"hp_base": 220, "speed_base": 0.0,
 		"hp_scale_cap": 1.5,
 		"stationary": true,
+		"coin_chance": 0.0, "coin_value": 0,
+	},
+	"manti": {
+		"frames_root": "res://assets/enemies/manti/",
+		"walk_prefix": "walk", "death_prefix": "death",
+		"target_height": 44.0,
+		"walk_dur": 0.36, "death_dur": 0.08,
+		"hp_base": 75, "speed_base": 62.0,
+		"hp_scale_cap": 3.0,
+		"coin_chance": 0.28, "coin_value": 2,
+	},
+	"mummy": {
+		"frames_root": "res://assets/enemies/mummy/",
+		"walk_prefix": "walk", "death_prefix": "death",
+		"target_height": 52.0,
+		"walk_dur": 0.48, "death_dur": 0.10,
+		"hp_base": 140, "speed_base": 36.0,
+		"hp_scale_cap": 4.0,
+		"coin_chance": 0.35, "coin_value": 3,
 	},
 }
 const UPGRADE_SCREEN_SCENE := preload("res://scenes/ui/UpgradeScreen.tscn")
@@ -126,6 +153,8 @@ var _passive_ranks: Dictionary = {}
 @onready var debug_panel: PanelContainer = $HUD/DebugPanel
 @onready var inv_hud_weapon_row: HBoxContainer = $HUD/InvHudPanel/InvHudMargin/InvHudVBox/InvHudWeaponRow
 @onready var inv_hud_passive_row: HBoxContainer = $HUD/InvHudPanel/InvHudMargin/InvHudVBox/InvHudPassiveRow
+@onready var gold_label: Label = $HUD/GoldPanel/GoldMargin/GoldRow/GoldLabel
+@onready var gold_icon: TextureRect = $HUD/GoldPanel/GoldMargin/GoldRow/GoldIcon
 @onready var pause_menu: CanvasLayer = $PauseMenu
 @onready var inventory_panel: PanelContainer = $PauseMenu/InventoryPanel
 @onready var inventory_body: Label = $PauseMenu/InventoryPanel/InvMargin/InvVBox/InvBody
@@ -142,7 +171,9 @@ var _player_level := 1
 var _kill_count := 0
 var _pause_open := false
 var _crystal_merge_timer := 0.0
-var _boss_spawned := false
+var _completed: bool = false
+## Gold collected during the current run; flushed to MetaSave on run end.
+var _run_gold: int = 0
 ## First flower-wall event triggers at this many seconds; subsequent events
 ## happen on FLOWER_EVENT_INTERVAL.
 var _flower_event_timer: float = 75.0
@@ -163,10 +194,12 @@ func _process(delta: float) -> void:
 
 	_inventory.process(delta, self, player)
 
-	# Boss event - one-shot, fires at the 3 minute mark.
-	if not _boss_spawned and _elapsed_seconds >= 180.0:
-		_boss_spawned = true
-		_spawn_boss()
+	# 5-minute run cap: stop spawning, end the run as completed.
+	if not _completed and _elapsed_seconds >= RUN_TIME_CAP:
+		_completed = true
+		_finalize_run_summary()
+		level_completed_requested.emit()
+		return
 
 	# Flower-wall ring event - periodic cage around the player.
 	_flower_event_timer -= delta
@@ -188,7 +221,9 @@ func _ready() -> void:
 		(bgm_stream as AudioStreamOggVorbis).loop = true
 	background_music.play()
 	_grant_starting_weapon()
+	_apply_meta_progression()
 	_refresh_inv_hud_icons()
+	_refresh_gold_hud()
 	pause_menu.visible = false
 	player_camera.make_current()
 	if player.has_signal("health_changed"):
@@ -250,8 +285,44 @@ func _grant_starting_weapon() -> void:
 		_inventory.add_weapon(w)
 
 
-func _on_enemy_died(spawn_position: Vector2) -> void:
+## Replays the player's permanent passive ranks from MetaSave at the start of
+## the run. Each rank is applied via _apply_upgrade so the in-run passive cap
+## (5) sees them - meta ranks count toward that cap.
+func _apply_meta_progression() -> void:
+	for pid in MetaSave.passive_upgrades.keys():
+		var pid_str: String = str(pid)
+		var rank: int = MetaSave.passive_rank(pid_str)
+		var cap: int = UpgradeCatalog.MAX_PASSIVE_RANK
+		var applied: int = 0
+		while applied < rank and int(_passive_ranks.get(pid_str, 0)) < cap:
+			_apply_upgrade("passive:%s" % pid_str)
+			applied += 1
+
+
+func _refresh_gold_hud() -> void:
+	if gold_label != null:
+		gold_label.text = str(_run_gold)
+	if gold_icon != null and gold_icon.texture == null:
+		var tex := Weapon.load_icon("res://assets/icons/24px-Sprite-Gold_Coin.png")
+		if tex != null:
+			gold_icon.texture = tex
+
+
+func _on_enemy_died(spawn_position: Vector2, type_id: String) -> void:
 	_kill_count += 1
+	var cfg: Dictionary = ENEMY_TYPES.get(type_id, ENEMY_TYPES["pipeestrello"])
+
+	# Coin drop rolls independently of crystal/chest; multiple drops on one
+	# kill are intentional so killing tougher enemies feels rewarding.
+	var coin_chance: float = float(cfg.get("coin_chance", 0.0))
+	var coin_value: int = int(cfg.get("coin_value", 1))
+	if coin_chance > 0.0 and randf() < coin_chance:
+		var coin = COIN_SCENE.instantiate()
+		coin.global_position = spawn_position + Vector2(randf_range(-6, 6), randf_range(-6, 6))
+		coin.value = coin_value
+		pickups.add_child(coin)
+		coin.collected.connect(_on_coin_collected)
+
 	# Rare chest replaces the crystal drop entirely so the chest is easy to spot.
 	if randf() < CHEST_DROP_CHANCE:
 		var chest = CHEST_SCENE.instantiate()
@@ -268,6 +339,11 @@ func _on_enemy_died(spawn_position: Vector2) -> void:
 	crystal.collected.connect(_on_crystal_collected)
 
 
+func _on_coin_collected(value: int) -> void:
+	_run_gold += maxi(0, value)
+	_refresh_gold_hud()
+
+
 ## Chest pickup -> slot-machine roll. Order of precedence for the winner:
 ##   1. A ready evolution (weapon at >= EVOLUTION_MIN_LEVEL + paired passive)
 ##   2. A random non-maxed weapon level-up
@@ -279,6 +355,9 @@ func _on_chest_opened() -> void:
 		return
 	_chest_roll_active = true
 	Sfx.play("levelup")
+	# Chest also pays out a chunk of gold beyond the upgrade roll.
+	_run_gold += CHEST_GOLD_BONUS
+	_refresh_gold_hud()
 
 	var winner_id: String = ""
 	var winner_label: String = ""
@@ -660,6 +739,11 @@ func _finalize_run_summary() -> void:
 	RunConfig.last_run_time_seconds = _elapsed_seconds
 	RunConfig.last_run_level = _player_level
 	RunConfig.last_run_kills = _kill_count
+	# Persist the run's gold into the meta save so the shop can spend it.
+	if _run_gold > 0:
+		MetaSave.add_gold(_run_gold)
+		_run_gold = 0
+		_refresh_gold_hud()
 
 
 func on_pause_requested() -> void:
@@ -980,22 +1064,29 @@ func _apply_difficulty_to_enemy(enemy: CharacterBody2D, cfg: Dictionary) -> void
 	enemy.move_speed = float(cfg["speed_base"]) * spd_mult
 
 
-## Picks a normal enemy type based on elapsed time:
-##   t <  60s -> pipeestrello only
-##   t >= 60s -> + skeleton
-##   t >= 120s -> + mudman1, mudman2
+## Picks a normal enemy type based on elapsed time. Timeline:
+##   0:00 -> bats only
+##   0:30 -> skeletons mix in
+##   1:30 -> mudmen mix in
+##   2:00 -> manti mix in
+##   2:30 -> mummies mix in
+## Big bats (batboss) are spawned separately by _maybe_spawn_boss_pair() as a
+## rare paired event past 1:00 - they aren't part of the regular pool.
 func _pick_normal_enemy_type() -> String:
 	var t := _elapsed_seconds
 	var pool: Array[String] = ["pipeestrello"]
-	if t >= 60.0:
-		# Once skeletons unlock, weight them a bit higher than bats so the
-		# population visibly shifts as the run progresses.
+	if t >= 30.0:
 		pool.append("skeleton")
 		pool.append("skeleton")
-	if t >= 120.0:
+	if t >= 90.0:
 		pool.append("mudman1")
 		pool.append("mudman2")
-		pool.append("mudman2")
+	if t >= 120.0:
+		pool.append("manti")
+		pool.append("manti")
+	if t >= 150.0:
+		pool.append("mummy")
+		pool.append("mummy")
 	return pool[randi() % pool.size()]
 
 
@@ -1009,6 +1100,11 @@ func _spawn_enemy() -> void:
 	# Second extra spawn past 90s for true swarm pressure.
 	if t > 90.0 and randf() < clampf((t - 90.0) / 240.0, 0.0, 0.5):
 		_spawn_one_enemy(_pick_normal_enemy_type(), _random_spawn_on_arena_edge())
+	# Rare big-bat pair past 1:00 - acts as the run's recurring mini-boss
+	# rather than a single 3-min event.
+	if t >= 60.0 and randf() < 0.012:
+		_spawn_one_enemy("batboss", _random_spawn_on_arena_edge())
+		_spawn_one_enemy("batboss", _random_spawn_on_arena_edge())
 
 
 func _spawn_one_enemy(type_id: String, spawn_pos: Vector2) -> CharacterBody2D:
@@ -1030,13 +1126,11 @@ func _spawn_one_enemy(type_id: String, spawn_pos: Vector2) -> CharacterBody2D:
 	if bool(cfg.get("can_be_elite", true)) and not enemy.stationary and randf() < ELITE_SPAWN_CHANCE:
 		enemy.is_elite = true
 		enemy.max_health = int(round(float(enemy.max_health) * ELITE_HP_MULT))
-	enemy.died.connect(_on_enemy_died)
+	# Bind the type id onto the died callback so the death handler knows what
+	# kind of enemy emitted it (drives coin drops without changing the signal).
+	enemy.died.connect(_on_enemy_died.bind(type_id))
 	enemies.add_child(enemy)
 	return enemy
-
-
-func _spawn_boss() -> void:
-	_spawn_one_enemy("batboss", _random_spawn_on_arena_edge())
 
 
 ## Spawns flowerwall enemies in a densely packed ring around the player.

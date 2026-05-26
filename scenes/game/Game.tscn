@@ -75,6 +75,37 @@ theme_override_constants/separation = 12
 [node name="InvHudPassiveRow" type="HBoxContainer" parent="HUD/InvHudPanel/InvHudMargin/InvHudVBox"]
 theme_override_constants/separation = 10
 
+[node name="GoldPanel" type="PanelContainer" parent="HUD"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -190.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 56.0
+grow_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_timer_bg")
+
+[node name="GoldMargin" type="MarginContainer" parent="HUD/GoldPanel"]
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 6
+
+[node name="GoldRow" type="HBoxContainer" parent="HUD/GoldPanel/GoldMargin"]
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="GoldIcon" type="TextureRect" parent="HUD/GoldPanel/GoldMargin/GoldRow"]
+custom_minimum_size = Vector2(28, 28)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GoldLabel" type="Label" parent="HUD/GoldPanel/GoldMargin/GoldRow"]
+text = "0"
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(1, 0.85, 0.32, 1)
+
 [node name="BigTimer" type="PanelContainer" parent="HUD"]
 anchors_preset = 5
 anchor_left = 0.5
