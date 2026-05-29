@@ -101,6 +101,19 @@ const ENEMY_TYPES := {
 		"hp_scale_cap": 4.0,
 		"coin_chance": 0.35, "coin_value": 3,
 	},
+	# Dedicated mid-run boss: huge, never culled, never elite, fires telegraphed
+	# projectile volleys (see enemy.gd boss logic). Drops a guaranteed chest.
+	"boss_bat": {
+		"frames_root": "res://assets/enemies/batboss/",
+		"walk_prefix": "walk", "death_prefix": "death",
+		"target_height": 74.0,
+		"walk_dur": 0.30, "death_dur": 0.10,
+		"hp_base": 2600, "speed_base": 38.0,
+		"hp_scale_cap": 0.0,
+		"cullable": false,
+		"can_be_elite": false,
+		"coin_chance": 1.0, "coin_value": 120,
+	},
 }
 const UPGRADE_SCREEN_SCENE := preload("res://scenes/ui/UpgradeScreen.tscn")
 const UPGRADE_CATALOG := preload("res://scripts/game/upgrade_catalog.gd")
@@ -155,6 +168,11 @@ var _passive_ranks: Dictionary = {}
 @onready var inv_hud_passive_row: HBoxContainer = $HUD/InvHudPanel/InvHudMargin/InvHudVBox/InvHudPassiveRow
 @onready var gold_label: Label = $HUD/GoldPanel/GoldMargin/GoldRow/GoldLabel
 @onready var gold_icon: TextureRect = $HUD/GoldPanel/GoldMargin/GoldRow/GoldIcon
+@onready var xp_bar: ProgressBar = $HUD/XpBar
+@onready var boss_bar: VBoxContainer = $HUD/BossBar
+@onready var boss_name_label: Label = $HUD/BossBar/BossName
+@onready var boss_health_bar: ProgressBar = $HUD/BossBar/BossHealth
+@onready var floating_text: Node2D = $FloatingText
 @onready var pause_menu: CanvasLayer = $PauseMenu
 @onready var inventory_panel: PanelContainer = $PauseMenu/InventoryPanel
 @onready var inventory_body: Label = $PauseMenu/InventoryPanel/InvMargin/InvVBox/InvBody
@@ -178,6 +196,13 @@ var _run_gold: int = 0
 ## happen on FLOWER_EVENT_INTERVAL.
 var _flower_event_timer: float = 75.0
 const FLOWER_EVENT_INTERVAL: float = 95.0
+
+## A single scripted boss appears once per run at this time. The fight is
+## announced via the on-screen boss health bar.
+const BOSS_SPAWN_TIME: float = 150.0
+const BOSS_KILL_GOLD: int = 150
+var _boss_spawned: bool = false
+var _boss: Node = null
 
 
 func _process(delta: float) -> void:
@@ -207,6 +232,11 @@ func _process(delta: float) -> void:
 		_flower_event_timer = FLOWER_EVENT_INTERVAL
 		_spawn_flower_ring()
 
+	# One scripted boss per run.
+	if not _boss_spawned and _elapsed_seconds >= BOSS_SPAWN_TIME:
+		_boss_spawned = true
+		_spawn_boss()
+
 	_cull_distant_enemies()
 	_crystal_merge_timer -= delta
 	if _crystal_merge_timer <= 0.0:
@@ -219,8 +249,10 @@ func _ready() -> void:
 	var bgm_stream := background_music.stream
 	if bgm_stream is AudioStreamOggVorbis:
 		(bgm_stream as AudioStreamOggVorbis).loop = true
+	background_music.bus = "Music"
 	background_music.play()
 	_grant_starting_weapon()
+	_apply_character_profile()
 	_apply_meta_progression()
 	_refresh_inv_hud_icons()
 	_refresh_gold_hud()
@@ -241,9 +273,13 @@ func _gems_needed_for_next_level() -> int:
 
 
 func _update_crystal_hud() -> void:
-	# XP bar removed from HUD. Progress is now shown only via level/kill text
-	# in the top-left inventory panel.
-	pass
+	# Full-width XP bar across the very top of the screen: fraction of crystals
+	# collected toward the next level-up.
+	if xp_bar == null:
+		return
+	var need := _gems_needed_for_next_level()
+	xp_bar.max_value = float(maxi(need, 1))
+	xp_bar.value = float(clampi(_crystals, 0, need))
 
 
 func _input(event: InputEvent) -> void:
@@ -283,6 +319,21 @@ func _grant_starting_weapon() -> void:
 	var w := WeaponRegistry.create(weapon_id)
 	if w != null:
 		_inventory.add_weapon(w)
+
+
+## Applies the chosen hero's stat profile (HP / speed / damage / armor /
+## recovery) on top of the base player so characters play differently.
+func _apply_character_profile() -> void:
+	if RunConfig.bonus_max_health != 0:
+		player.apply_bonus_max_health(RunConfig.bonus_max_health)
+	if not is_equal_approx(RunConfig.move_speed_mult, 1.0):
+		player.apply_move_speed_mult(RunConfig.move_speed_mult)
+	if RunConfig.global_damage_bonus != 0:
+		apply_global_damage_bonus(RunConfig.global_damage_bonus)
+	if RunConfig.bonus_armor != 0:
+		player.apply_armor_bonus(RunConfig.bonus_armor)
+	if RunConfig.bonus_recovery != 0.0:
+		player.apply_recovery_bonus(RunConfig.bonus_recovery)
 
 
 ## Replays the player's permanent passive ranks from MetaSave at the start of
@@ -739,6 +790,22 @@ func _finalize_run_summary() -> void:
 	RunConfig.last_run_time_seconds = _elapsed_seconds
 	RunConfig.last_run_level = _player_level
 	RunConfig.last_run_kills = _kill_count
+	RunConfig.last_run_gold = _run_gold
+
+	# Snapshot the loadout for the end-of-run stats screen.
+	var weapon_lines: Array[String] = []
+	for w in _inventory.weapons:
+		weapon_lines.append("%s  Lv %d" % [w.display_name, w.level])
+	RunConfig.last_run_weapons = weapon_lines
+
+	var passive_lines: Array[String] = []
+	for id in _passive_ranks.keys():
+		var title: String = str(id)
+		if UpgradeCatalog.PASSIVES.has(id):
+			title = str(UpgradeCatalog.PASSIVES[id]["title"])
+		passive_lines.append("%s  x%d" % [title, int(_passive_ranks[id])])
+	RunConfig.last_run_passives = passive_lines
+
 	# Persist the run's gold into the meta save so the shop can spend it.
 	if _run_gold > 0:
 		MetaSave.add_gold(_run_gold)
@@ -1106,7 +1173,7 @@ func _spawn_enemy() -> void:
 		_spawn_one_enemy("batboss", _random_spawn_on_arena_edge())
 
 
-func _spawn_one_enemy(type_id: String, spawn_pos: Vector2) -> CharacterBody2D:
+func _spawn_one_enemy(type_id: String, spawn_pos: Vector2, as_boss: bool = false) -> CharacterBody2D:
 	var cfg: Dictionary = ENEMY_TYPES.get(type_id, ENEMY_TYPES["pipeestrello"])
 	var enemy: CharacterBody2D = ENEMY_SCENE.instantiate()
 	enemy.frames_root = str(cfg["frames_root"])
@@ -1120,9 +1187,14 @@ func _spawn_one_enemy(type_id: String, spawn_pos: Vector2) -> CharacterBody2D:
 	enemy.sprite_default_faces_right = bool(cfg.get("faces_right", false))
 	enemy.target = player
 	enemy.global_position = spawn_pos
+	# Layers used for combat feedback (floating numbers) and boss projectiles.
+	enemy.floating_text_layer = floating_text
+	enemy.projectile_layer = projectiles
+	if as_boss:
+		enemy.is_boss = true
 	_apply_difficulty_to_enemy(enemy, cfg)
 	# Elite roll - applies AFTER difficulty so it doubles the already-scaled HP.
-	if bool(cfg.get("can_be_elite", true)) and not enemy.stationary and randf() < ELITE_SPAWN_CHANCE:
+	if not as_boss and bool(cfg.get("can_be_elite", true)) and not enemy.stationary and randf() < ELITE_SPAWN_CHANCE:
 		enemy.is_elite = true
 		enemy.max_health = int(round(float(enemy.max_health) * ELITE_HP_MULT))
 	# Bind the type id onto the died callback so the death handler knows what
@@ -1130,6 +1202,45 @@ func _spawn_one_enemy(type_id: String, spawn_pos: Vector2) -> CharacterBody2D:
 	enemy.died.connect(_on_enemy_died.bind(type_id))
 	enemies.add_child(enemy)
 	return enemy
+
+
+## Spawns the run's single scripted boss and wires up the on-screen health bar.
+func _spawn_boss() -> void:
+	if _boss != null and is_instance_valid(_boss):
+		return
+	var enemy := _spawn_one_enemy("boss_bat", _random_spawn_on_arena_edge(), true)
+	_boss = enemy
+	if boss_name_label != null:
+		boss_name_label.text = "VESPER · THE BAT OVERLORD"
+	if boss_health_bar != null:
+		boss_health_bar.max_value = float(maxi(enemy.max_health, 1))
+		boss_health_bar.value = float(enemy.max_health)
+	if boss_bar != null:
+		boss_bar.visible = true
+	if enemy.has_signal("health_changed"):
+		enemy.health_changed.connect(_on_boss_health_changed)
+	enemy.died.connect(_on_boss_died)
+	Sfx.play("levelup")
+
+
+func _on_boss_health_changed(current: int, maximum: int) -> void:
+	if boss_health_bar == null:
+		return
+	boss_health_bar.max_value = float(maxi(maximum, 1))
+	boss_health_bar.value = float(maxi(current, 0))
+
+
+func _on_boss_died(spawn_position: Vector2) -> void:
+	_boss = null
+	if boss_bar != null:
+		boss_bar.visible = false
+	# Guaranteed reward: a treasure chest plus a gold bonus.
+	var chest = CHEST_SCENE.instantiate()
+	chest.global_position = spawn_position
+	pickups.add_child(chest)
+	chest.opened.connect(_on_chest_opened)
+	_run_gold += BOSS_KILL_GOLD
+	_refresh_gold_hud()
 
 
 ## Spawns flowerwall enemies in a densely packed ring around the player.

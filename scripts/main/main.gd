@@ -7,6 +7,7 @@ enum FlowState {
 	GAME_OVER,
 	LEVEL_COMPLETE,
 	META_SHOP,
+	SETTINGS,
 }
 
 const MAIN_MENU_SCENE := preload("res://scenes/ui/MainMenu.tscn")
@@ -15,6 +16,7 @@ const GAME_SCENE := preload("res://scenes/game/Game.tscn")
 const GAME_OVER_SCENE := preload("res://scenes/ui/GameOver.tscn")
 const LEVEL_COMPLETE_SCENE := preload("res://scenes/ui/LevelComplete.tscn")
 const META_SHOP_SCENE := preload("res://scenes/ui/MetaShop.tscn")
+const SETTINGS_SCENE := preload("res://scenes/ui/Settings.tscn")
 
 @onready var screen_root: Node = $ScreenRoot
 
@@ -39,6 +41,7 @@ func _change_state(state: FlowState) -> void:
 			_current_screen = MAIN_MENU_SCENE.instantiate()
 			_current_screen.start_requested.connect(_on_start_requested)
 			_current_screen.meta_requested.connect(_on_meta_requested)
+			_current_screen.settings_requested.connect(_on_settings_requested)
 			_current_screen.quit_requested.connect(_on_quit_requested)
 		FlowState.CHARACTER_SELECT:
 			_current_screen = CHARACTER_SELECT_SCENE.instantiate()
@@ -55,6 +58,9 @@ func _change_state(state: FlowState) -> void:
 		FlowState.META_SHOP:
 			_current_screen = META_SHOP_SCENE.instantiate()
 			_current_screen.back_requested.connect(_on_main_menu_requested)
+		FlowState.SETTINGS:
+			_current_screen = SETTINGS_SCENE.instantiate()
+			_current_screen.back_requested.connect(_on_main_menu_requested)
 		FlowState.LEVEL_COMPLETE:
 			_current_screen = LEVEL_COMPLETE_SCENE.instantiate()
 			_current_screen.main_menu_requested.connect(_on_main_menu_requested)
@@ -68,6 +74,10 @@ func _on_start_requested() -> void:
 
 func _on_meta_requested() -> void:
 	_change_state(FlowState.META_SHOP)
+
+
+func _on_settings_requested() -> void:
+	_change_state(FlowState.SETTINGS)
 
 
 func _on_run_requested(character_id: String) -> void:

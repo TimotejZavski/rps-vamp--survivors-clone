@@ -102,6 +102,13 @@ func apply_move_speed_bonus(amount: float) -> void:
 	dash_speed += amount * 1.35
 
 
+## Multiplicative speed change used by per-character presets (e.g. the bruiser
+## is slower, the support is faster). Applied once at run start.
+func apply_move_speed_mult(mult: float) -> void:
+	move_speed *= mult
+	dash_speed *= mult
+
+
 func _physics_process(delta: float) -> void:
 	_input_move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if _input_move != Vector2.ZERO:

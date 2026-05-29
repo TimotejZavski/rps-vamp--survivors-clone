@@ -58,10 +58,12 @@ theme_override_font_sizes/font_size = 88
 theme_override_colors/font_color = Color(0.95, 0.32, 0.28, 1.0)
 
 [node name="StatsLabel" type="Label" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(780, 0)
 layout_mode = 2
 text = "Time —  ·  Level —  ·  Enemies —"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 28
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 22
 theme_override_colors/font_color = Color(0.92, 0.9, 0.78, 1.0)
 
 [node name="Spacer" type="Control" parent="CenterContainer/VBoxContainer"]

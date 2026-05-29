@@ -9,6 +9,7 @@ const TARGET_HEIGHT := 22.0
 
 
 func _ready() -> void:
+	add_to_group("chest")
 	collision_layer = 0
 	collision_mask = 1  # player layer
 	monitoring = true

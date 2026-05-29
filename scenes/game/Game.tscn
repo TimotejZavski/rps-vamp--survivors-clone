@@ -1,17 +1,39 @@
-[gd_scene load_steps=6 format=3 uid="uid://drww8ah4ljqm8"]
+[gd_scene load_steps=10 format=3 uid="uid://drww8ah4ljqm8"]
 
 [ext_resource type="Script" path="res://scripts/game/game.gd" id="1_t8hjr"]
 [ext_resource type="PackedScene" path="res://scenes/game/Player.tscn" id="2_5xcmf"]
 [ext_resource type="Script" path="res://scripts/world/procedural_forest_manager.gd" id="3_forest"]
 [ext_resource type="AudioStream" path="res://assets/music/the_beginning.ogg" id="4_bgm"]
+[ext_resource type="Script" path="res://scripts/ui/offscreen_indicators.gd" id="5_offscr"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_bg"]
-bg_color = Color(0.1, 0.12, 0.18, 1)
-border_width_bottom = 1
+bg_color = Color(0.08, 0.1, 0.16, 0.92)
+border_width_bottom = 2
 border_color = Color(0.22, 0.26, 0.36, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_fill"]
-bg_color = Color(0.22, 0.55, 0.95, 1)
+bg_color = Color(0.3, 0.66, 1.0, 1)
+border_width_bottom = 2
+border_color = Color(0.55, 0.85, 1.0, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_boss_bg"]
+bg_color = Color(0.08, 0.06, 0.08, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.5, 0.2, 0.22, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_boss_fill"]
+bg_color = Color(0.85, 0.18, 0.2, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_timer_bg"]
 bg_color = Color(0.07, 0.08, 0.12, 0.78)
@@ -51,13 +73,66 @@ script = ExtResource("3_forest")
 
 [node name="Pickups" type="Node2D" parent="."]
 
+[node name="FloatingText" type="Node2D" parent="."]
+z_index = 60
+z_as_relative = false
+
 [node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="XpBar" type="ProgressBar" parent="HUD"]
+anchor_right = 1.0
+offset_bottom = 12.0
+grow_horizontal = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_xp_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_xp_fill")
+max_value = 1.0
+step = 0.001
+value = 0.0
+rounded = true
+show_percentage = false
+
+[node name="BossBar" type="VBoxContainer" parent="HUD"]
+visible = false
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -280.0
+offset_top = 64.0
+offset_right = 280.0
+offset_bottom = 112.0
+grow_horizontal = 2
+theme_override_constants/separation = 4
+
+[node name="BossName" type="Label" parent="HUD/BossBar"]
+layout_mode = 2
+text = "BOSS"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.95, 0.45, 0.42, 1)
+
+[node name="BossHealth" type="ProgressBar" parent="HUD/BossBar"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_boss_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_boss_fill")
+max_value = 1.0
+step = 0.001
+value = 1.0
+show_percentage = false
+
+[node name="OffscreenIndicators" type="Control" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_offscr")
 
 [node name="InvHudPanel" type="PanelContainer" parent="HUD"]
 offset_left = 8.0
-offset_top = 10.0
+offset_top = 18.0
 offset_right = 540.0
-offset_bottom = 198.0
+offset_bottom = 206.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_timer_bg")
 
 [node name="InvHudMargin" type="MarginContainer" parent="HUD/InvHudPanel"]
@@ -80,9 +155,9 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -190.0
-offset_top = 10.0
+offset_top = 18.0
 offset_right = -10.0
-offset_bottom = 56.0
+offset_bottom = 64.0
 grow_horizontal = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_timer_bg")
 
@@ -111,9 +186,9 @@ anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -84.0
-offset_top = 8.0
+offset_top = 16.0
 offset_right = 84.0
-offset_bottom = 52.0
+offset_bottom = 60.0
 grow_horizontal = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_timer_bg")
 

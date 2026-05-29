@@ -9,9 +9,18 @@ var gold: int = 0
 ## id -> rank (1..MAX_PASSIVE_RANK from UpgradeCatalog).
 var passive_upgrades: Dictionary = {}
 
+## Player-facing options, persisted alongside progression.
+const DEFAULT_SETTINGS := {
+	"music_volume": 0.8,
+	"sfx_volume": 0.9,
+	"fullscreen": false,
+}
+var settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
+
 
 func _ready() -> void:
 	load_data()
+	apply_settings()
 
 
 func load_data() -> void:
@@ -29,14 +38,55 @@ func load_data() -> void:
 		var pu: Variant = data.get("passive_upgrades", {})
 		if pu is Dictionary:
 			passive_upgrades = (pu as Dictionary).duplicate(true)
+		var st: Variant = data.get("settings", {})
+		if st is Dictionary:
+			for key in DEFAULT_SETTINGS.keys():
+				if (st as Dictionary).has(key):
+					settings[key] = (st as Dictionary)[key]
 
 
 func save_data() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
 		return
-	f.store_string(JSON.stringify({ "gold": gold, "passive_upgrades": passive_upgrades }))
+	f.store_string(JSON.stringify({
+		"gold": gold,
+		"passive_upgrades": passive_upgrades,
+		"settings": settings,
+	}))
 	f.close()
+
+
+func get_setting(key: String) -> Variant:
+	return settings.get(key, DEFAULT_SETTINGS.get(key))
+
+
+## Stores a single option, persists, and re-applies all settings immediately.
+func set_setting(key: String, value: Variant) -> void:
+	settings[key] = value
+	save_data()
+	apply_settings()
+
+
+## Pushes the stored options into the engine (audio bus volumes + window mode).
+func apply_settings() -> void:
+	_apply_bus_volume("Music", float(get_setting("music_volume")))
+	_apply_bus_volume("SFX", float(get_setting("sfx_volume")))
+	_apply_fullscreen(bool(get_setting("fullscreen")))
+
+
+func _apply_bus_volume(bus_name: String, volume: float) -> void:
+	var idx := AudioServer.get_bus_index(bus_name)
+	if idx == -1:
+		return
+	var v := clampf(volume, 0.0, 1.0)
+	AudioServer.set_bus_mute(idx, v <= 0.001)
+	AudioServer.set_bus_volume_db(idx, linear_to_db(v) if v > 0.001 else -80.0)
+
+
+func _apply_fullscreen(on: bool) -> void:
+	var mode := DisplayServer.WINDOW_MODE_FULLSCREEN if on else DisplayServer.WINDOW_MODE_WINDOWED
+	DisplayServer.window_set_mode(mode)
 
 
 func add_gold(amount: int) -> void:
